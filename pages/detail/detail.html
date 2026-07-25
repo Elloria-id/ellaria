@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Detail Series - Ellaria エル">
+    <link rel="stylesheet" href="/css/variables.css">
+    <link rel="stylesheet" href="/css/reset.css">
+    <link rel="stylesheet" href="/css/global.css">
+    <link rel="stylesheet" href="/css/navbar.css">
+    <link rel="stylesheet" href="/css/responsive.css">
+    <link rel="stylesheet" href="detail.css">
+    <title>Detail Series - Ellaria エル</title>
+</head>
+<body>
+    <div class="background-aurora">
+        <div class="aurora-light"></div>
+        <div class="stars"></div>
+    </div>
+
+    <nav class="navbar" id="navbar">
+        <div class="navbar-container">
+            <div class="navbar-logo">
+                <a href="/" class="logo-link">
+                    <span class="logo-text">Ellaria</span>
+                    <span class="logo-jp">エル</span>
+                </a>
+            </div>
+            <button class="menu-toggle" id="menu-toggle" aria-label="Toggle menu">
+                <span></span><span></span><span></span>
+            </button>
+            <div class="navbar-menu" id="navbar-menu">
+                <ul class="navbar-list">
+                    <li><a href="/" class="navbar-link">Beranda</a></li>
+                    <li><a href="/pages/explore/explore.html" class="navbar-link">Jelajahi</a></li>
+                    <li><a href="#" class="navbar-link">Genre</a></li>
+                    <li><a href="/pages/community/community.html" class="navbar-link">Komunitas</a></li>
+                    <li><a href="/pages/shop/shop.html" class="navbar-link">Toko</a></li>
+                </ul>
+            </div>
+            <div class="navbar-actions">
+                <button class="search-btn" id="search-btn" aria-label="Search">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <path d="m21 21-4.35-4.35"></path>
+                    </svg>
+                </button>
+                <div class="profile-menu" id="profile-menu">
+                    <button class="profile-btn" id="profile-btn">
+                        <img id="profile-avatar" src="/assets/images/avatar/default.jpg" alt="Profile" class="profile-avatar">
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div class="detail-header" id="detail-header">
+            <div class="detail-header-skeleton">
+                <div class="skeleton-cover"></div>
+                <div class="skeleton-text"></div>
+                <div class="skeleton-text"></div>
+            </div>
+        </div>
+
+        <div class="section-container">
+            <!-- Series Info -->
+            <div class="series-info" id="series-info"></div>
+
+            <!-- Chapter List -->
+            <section class="chapters-section">
+                <h2 class="section-title">Daftar Bab</h2>
+                <div class="chapters-list" id="chapters-list"></div>
+            </section>
+
+            <!-- Comments Section -->
+            <section class="comments-section">
+                <h2 class="section-title">Komentar</h2>
+                <div class="comments-list" id="comments-list"></div>
+            </section>
+        </div>
+    </main>
+
+    <script src="/js/main.js" defer></script>
+    <script src="/js/navbar.js" defer></script>
+    <script src="detail.js" defer></script>
+</body>
+</html>
