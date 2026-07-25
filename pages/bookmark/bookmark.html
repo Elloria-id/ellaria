@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Bookmark - Ellaria エル">
+    <link rel="stylesheet" href="/css/variables.css">
+    <link rel="stylesheet" href="/css/reset.css">
+    <link rel="stylesheet" href="/css/global.css">
+    <link rel="stylesheet" href="/css/navbar.css">
+    <link rel="stylesheet" href="/css/responsive.css">
+    <link rel="stylesheet" href="bookmark.css">
+    <title>Bookmark - Ellaria エル</title>
+</head>
+<body>
+    <div class="background-aurora">
+        <div class="aurora-light"></div>
+        <div class="stars"></div>
+    </div>
+
+    <nav class="navbar" id="navbar">
+        <div class="navbar-container">
+            <div class="navbar-logo">
+                <a href="/" class="logo-link">
+                    <span class="logo-text">Ellaria</span>
+                    <span class="logo-jp">エル</span>
+                </a>
+            </div>
+            <button class="menu-toggle" id="menu-toggle">
+                <span></span><span></span><span></span>
+            </button>
+            <div class="navbar-menu" id="navbar-menu">
+                <ul class="navbar-list">
+                    <li><a href="/" class="navbar-link">Beranda</a></li>
+                    <li><a href="/pages/explore/explore.html" class="navbar-link">Jelajahi</a></li>
+                </ul>
+            </div>
+            <div class="navbar-actions">
+                <div class="profile-menu" id="profile-menu">
+                    <button class="profile-btn" id="profile-btn">
+                        <img id="profile-avatar" src="/assets/images/avatar/default.jpg" alt="Profile" class="profile-avatar">
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div class="section-container">
+            <h1 class="page-title">My Bookmarks</h1>
+
+            <!-- Category Tabs -->
+            <div class="category-tabs">
+                <button class="tab active" data-category="reading">Reading</button>
+                <button class="tab" data-category="completed">Completed</button>
+                <button class="tab" data-category="planned">Planned</button>
+                <button class="tab" data-category="dropped">Dropped</button>
+                <button class="tab" data-category="favorites">Favorites</button>
+            </div>
+
+            <!-- Bookmarks Grid -->
+            <div class="bookmarks-grid" id="bookmarks-grid"></div>
+
+            <!-- Empty State -->
+            <div class="empty-state" id="empty-state" style="display: none;">
+                <div class="empty-icon">📖</div>
+                <h3>Belum ada bookmark</h3>
+                <p>Mulai menambahkan series favorit Anda</p>
+                <a href="/pages/explore/explore.html" class="btn">Jelajahi Series</a>
+            </div>
+        </div>
+    </main>
+
+    <script src="/js/main.js" defer></script>
+    <script src="/js/navbar.js" defer></script>
+    <script src="bookmark.js" defer></script>
+</body>
+</html>

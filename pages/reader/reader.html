@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Reader - Ellaria エル">
+    <link rel="stylesheet" href="/css/variables.css">
+    <link rel="stylesheet" href="/css/reset.css">
+    <link rel="stylesheet" href="/css/global.css">
+    <link rel="stylesheet" href="reader.css">
+    <title>Reader - Ellaria エル</title>
+</head>
+<body>
+    <div class="reader-container">
+        <!-- Reader Toolbar -->
+        <div class="reader-toolbar" id="reader-toolbar">
+            <div class="toolbar-left">
+                <button class="toolbar-btn" id="back-btn" title="Back">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M19 12H5M12 19l-7-7 7-7"/>
+                    </svg>
+                </button>
+                <span class="current-chapter" id="current-chapter">Chapter 1</span>
+            </div>
+
+            <div class="toolbar-center">
+                <button class="toolbar-btn" id="prev-chapter-btn">← Bab Sebelumnya</button>
+                <button class="toolbar-btn" id="next-chapter-btn">Bab Selanjutnya →</button>
+            </div>
+
+            <div class="toolbar-right">
+                <button class="toolbar-btn" id="bookmark-btn" title="Bookmark">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+                    </svg>
+                </button>
+                <button class="toolbar-btn" id="settings-btn" title="Settings">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Reader Content -->
+        <div class="reader-content" id="reader-content">
+            <!-- Manga/Manhwa Reader -->
+            <div class="manga-reader" id="manga-reader" style="display: none;">
+                <div class="pages-container" id="pages-container">
+                    <img src="/assets/images/chapters/page-1.jpg" alt="Page 1" class="manga-page">
+                </div>
+            </div>
+
+            <!-- Novel Reader -->
+            <div class="novel-reader" id="novel-reader" style="display: none;">
+                <article class="novel-content" id="novel-content">
+                    <h2>Chapter 1: The Beginning</h2>
+                    <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
+                </article>
+            </div>
+        </div>
+
+        <!-- Reader Settings Panel -->
+        <div class="reader-settings" id="reader-settings" style="display: none;">
+            <div class="settings-header">
+                <h3>Pengaturan Pembaca</h3>
+                <button class="close-btn" id="close-settings">×</button>
+            </div>
+            <div class="settings-body">
+                <!-- Manga Settings -->
+                <div id="manga-settings">
+                    <div class="setting-group">
+                        <label>Lebar Gambar</label>
+                        <input type="range" id="image-width" min="50" max="100" value="100">
+                    </div>
+                    <div class="setting-group">
+                        <label>Jarak Antar Gambar</label>
+                        <input type="range" id="image-gap" min="0" max="30" value="10">
+                    </div>
+                </div>
+
+                <!-- Novel Settings -->
+                <div id="novel-settings">
+                    <div class="setting-group">
+                        <label>Ukuran Font</label>
+                        <input type="range" id="font-size" min="12" max="24" value="16">
+                    </div>
+                    <div class="setting-group">
+                        <label>Tinggi Baris</label>
+                        <input type="range" id="line-height" min="1" max="2.5" step="0.1" value="1.5">
+                    </div>
+                    <div class="setting-group">
+                        <label>Spasi Paragraf</label>
+                        <input type="range" id="paragraph-spacing" min="0" max="30" value="15">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/main.js" defer></script>
+    <script src="reader.js" defer></script>
+</body>
+</html>

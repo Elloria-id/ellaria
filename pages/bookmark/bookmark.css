@@ -1,0 +1,122 @@
+/* Bookmark Page Styles */
+
+.page-title {
+    font-size: var(--text-4xl);
+    font-family: 'Cinzel', serif;
+    margin-bottom: var(--sp-3xl);
+    padding-bottom: var(--sp-xl);
+    border-bottom: 1px solid var(--divider);
+}
+
+.category-tabs {
+    display: flex;
+    gap: var(--sp-md);
+    margin-bottom: var(--sp-3xl);
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--divider);
+    padding-bottom: var(--sp-lg);
+}
+
+.tab {
+    padding: var(--sp-md) var(--sp-lg);
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-weight: var(--fw-medium);
+    transition: all var(--transition-base);
+    font-size: var(--text-sm);
+}
+
+.tab:hover {
+    color: var(--accent);
+}
+
+.tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+}
+
+.bookmarks-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: var(--sp-xl);
+}
+
+.bookmark-card {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    transition: all var(--transition-base);
+    cursor: pointer;
+}
+
+.bookmark-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-8px);
+    box-shadow: var(--shadow-xl), var(--shadow-glow);
+}
+
+.bookmark-cover {
+    width: 100%;
+    aspect-ratio: 3/4;
+    object-fit: cover;
+}
+
+.bookmark-info {
+    padding: var(--sp-lg);
+}
+
+.bookmark-title {
+    font-weight: var(--fw-semibold);
+    margin-bottom: var(--sp-sm);
+    color: var(--text-primary);
+}
+
+.bookmark-progress {
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
+    margin-bottom: var(--sp-md);
+}
+
+.progress-bar {
+    width: 100%;
+    height: 4px;
+    background: var(--secondary);
+    border-radius: var(--radius-full);
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: var(--accent);
+    transition: width 300ms ease-out;
+}
+
+.empty-state {
+    text-align: center;
+    padding: var(--sp-4xl);
+}
+
+.empty-icon {
+    font-size: 4rem;
+    margin-bottom: var(--sp-lg);
+}
+
+.empty-state h3 {
+    color: var(--text-primary);
+    margin-bottom: var(--sp-md);
+}
+
+.empty-state p {
+    color: var(--text-secondary);
+    margin-bottom: var(--sp-lg);
+}
+
+@media (max-width: 768px) {
+    .bookmarks-grid {
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    }
+}

@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Search - Ellaria エル">
+    <link rel="stylesheet" href="/css/variables.css">
+    <link rel="stylesheet" href="/css/reset.css">
+    <link rel="stylesheet" href="/css/global.css">
+    <link rel="stylesheet" href="/css/navbar.css">
+    <link rel="stylesheet" href="/css/responsive.css">
+    <link rel="stylesheet" href="search.css">
+    <title>Search - Ellaria エル</title>
+</head>
+<body>
+    <div class="background-aurora">
+        <div class="aurora-light"></div>
+        <div class="stars"></div>
+    </div>
+
+    <nav class="navbar" id="navbar">
+        <div class="navbar-container">
+            <div class="navbar-logo">
+                <a href="/" class="logo-link">
+                    <span class="logo-text">Ellaria</span>
+                    <span class="logo-jp">エル</span>
+                </a>
+            </div>
+            <button class="menu-toggle" id="menu-toggle">
+                <span></span><span></span><span></span>
+            </button>
+            <div class="navbar-menu" id="navbar-menu">
+                <ul class="navbar-list">
+                    <li><a href="/" class="navbar-link">Beranda</a></li>
+                    <li><a href="/pages/explore/explore.html" class="navbar-link">Jelajahi</a></li>
+                </ul>
+            </div>
+            <div class="navbar-actions">
+                <div class="profile-menu" id="profile-menu">
+                    <button class="profile-btn" id="profile-btn">
+                        <img id="profile-avatar" src="/assets/images/avatar/default.jpg" alt="Profile" class="profile-avatar">
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div class="section-container">
+            <div class="search-header">
+                <h1>Cari Series</h1>
+                <div class="search-box">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <path d="m21 21-4.35-4.35"></path>
+                    </svg>
+                    <input type="text" id="search-input" placeholder="Cari judul, penulis, atau translator..." class="search-input">
+                </div>
+            </div>
+
+            <!-- Recent Searches -->
+            <section class="recent-searches" id="recent-searches" style="display: none;">
+                <h3>Pencarian Terakhir</h3>
+                <div class="tags" id="recent-tags"></div>
+            </section>
+
+            <!-- Trending Searches -->
+            <section class="trending-searches" id="trending-searches" style="display: none;">
+                <h3>Pencarian Trending</h3>
+                <div class="tags" id="trending-tags"></div>
+            </section>
+
+            <!-- Search Results -->
+            <section class="search-results" id="search-results" style="display: none;">
+                <h3>Hasil Pencarian</h3>
+                <div class="results-grid" id="results-grid"></div>
+            </section>
+
+            <!-- No Results -->
+            <div class="no-results" id="no-results" style="display: none;">
+                <div class="no-results-icon">🔍</div>
+                <h3>Tidak ada hasil</h3>
+            </div>
+        </div>
+    </main>
+
+    <script src="/js/main.js" defer></script>
+    <script src="/js/navbar.js" defer></script>
+    <script src="search.js" defer></script>
+</body>
+</html>
