@@ -1,0 +1,323 @@
+/* ========================================
+   ELLARIA エル - RESPONSIVE STYLES
+   Mobile, Tablet, Desktop optimizations
+======================================== */
+
+/* ========== TABLET (768px - 1023px) ========== */
+@media (max-width: 1023px) {
+    .hero-banner {
+        height: 400px;
+        margin-bottom: var(--sp-2xl);
+    }
+
+    .banner-content {
+        max-width: 60%;
+    }
+
+    .banner-title {
+        font-size: var(--text-4xl);
+    }
+
+    .banner-cover {
+        width: 200px;
+        height: 280px;
+    }
+
+    .section-container {
+        padding: 0 var(--sp-md);
+    }
+
+    .updates-grid,
+    .trending-grid,
+    .popular-grid,
+    .new-series-grid,
+    .recommendation-grid {
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: var(--sp-lg);
+    }
+
+    .section-title {
+        font-size: var(--text-2xl);
+    }
+}
+
+/* ========== MOBILE (480px - 767px) ========== */
+@media (max-width: 767px) {
+    .hero-banner {
+        height: 300px;
+        margin: 0 var(--sp-md) var(--sp-2xl);
+        border-radius: var(--radius-lg);
+    }
+
+    .banner-slide {
+        flex-direction: column;
+        padding: var(--sp-lg);
+        justify-content: flex-end;
+    }
+
+    .banner-content {
+        max-width: 100%;
+        text-align: left;
+    }
+
+    .banner-title {
+        font-size: var(--text-2xl);
+        margin-bottom: var(--sp-sm);
+    }
+
+    .banner-subtitle {
+        font-size: var(--text-sm);
+        margin-bottom: var(--sp-md);
+    }
+
+    .banner-cover {
+        display: none;
+    }
+
+    .banner-meta {
+        gap: var(--sp-md);
+        margin-bottom: var(--sp-md);
+    }
+
+    .banner-btn {
+        padding: var(--sp-md);
+        font-size: var(--text-sm);
+    }
+
+    /* Navigation */
+    .navbar-container {
+        height: 56px;
+        padding: 0 var(--sp-md);
+    }
+
+    .navbar-menu {
+        margin: 0;
+    }
+
+    .see-all-link {
+        font-size: var(--text-xs);
+    }
+
+    /* Sections */
+    section {
+        padding: var(--sp-2xl) 0;
+    }
+
+    .section-container {
+        padding: 0 var(--sp-md);
+    }
+
+    .section-header {
+        margin-bottom: var(--sp-2xl);
+        padding-bottom: var(--sp-md);
+    }
+
+    .section-title {
+        font-size: var(--text-xl);
+    }
+
+    .updates-grid,
+    .trending-grid,
+    .popular-grid,
+    .new-series-grid,
+    .recommendation-grid {
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: var(--sp-md);
+    }
+
+    .card-title {
+        font-size: var(--text-xs);
+    }
+
+    /* Footer */
+    .footer {
+        padding: var(--sp-2xl) 0 var(--sp-lg);
+    }
+
+    .footer-content {
+        grid-template-columns: 1fr;
+        gap: var(--sp-2xl);
+        margin-bottom: var(--sp-2xl);
+        padding-bottom: var(--sp-2xl);
+    }
+
+    .footer-links {
+        grid-template-columns: repeat(2, 1fr);
+        gap: var(--sp-lg);
+    }
+
+    .footer-title {
+        font-size: var(--text-xs);
+        margin-bottom: var(--sp-sm);
+    }
+
+    .footer-link {
+        font-size: var(--text-xs);
+        margin-bottom: var(--sp-sm);
+    }
+
+    .footer-bottom {
+        font-size: var(--text-xs);
+    }
+
+    /* Announcement */
+    .announcement-container {
+        padding: 0 var(--sp-md);
+        flex-wrap: wrap;
+    }
+
+    .announcement-content {
+        order: 1;
+        width: 100%;
+        margin-bottom: var(--sp-md);
+    }
+
+    #announcement-text {
+        font-size: var(--text-xs);
+    }
+}
+
+/* ========== SMALL MOBILE (320px - 479px) ========== */
+@media (max-width: 479px) {
+    :root {
+        --sp-lg: 1rem;
+        --sp-xl: 1.5rem;
+        --sp-2xl: 2rem;
+    }
+
+    .hero-banner {
+        height: 250px;
+    }
+
+    .banner-controls {
+        bottom: var(--sp-md);
+        gap: var(--sp-md);
+    }
+
+    .banner-btn-prev,
+    .banner-btn-next {
+        width: 36px;
+        height: 36px;
+    }
+
+    .banner-dots {
+        gap: var(--sp-sm);
+    }
+
+    .banner-dot {
+        width: 6px;
+        height: 6px;
+    }
+
+    .banner-dot.active {
+        width: 18px;
+    }
+
+    .navbar-actions {
+        gap: var(--sp-md);
+    }
+
+    .logo-text {
+        font-size: var(--text-base);
+    }
+
+    .logo-jp {
+        font-size: var(--text-xs);
+    }
+
+    .modal-search {
+        padding-top: 60px;
+    }
+
+    .modal-search .modal-content {
+        width: 95%;
+    }
+
+    .search-input {
+        font-size: 16px; /* Prevent zoom on iOS */
+    }
+
+    /* Prevent horizontal scroll */
+    body, html {
+        overflow-x: hidden;
+    }
+}
+
+/* ========== LANDSCAPE MODE ========== */
+@media (max-height: 500px) and (orientation: landscape) {
+    .hero-banner {
+        height: 300px;
+    }
+
+    .banner-content {
+        max-width: 40%;
+    }
+
+    .banner-title {
+        font-size: var(--text-2xl);
+    }
+
+    .section-title {
+        font-size: var(--text-xl);
+    }
+}
+
+/* ========== ULTRA-WIDE (1920px+) ========== */
+@media (min-width: 1920px) {
+    .section-container,
+    .navbar-container {
+        max-width: 1600px;
+    }
+
+    .hero-banner {
+        height: 600px;
+    }
+
+    .banner-title {
+        font-size: var(--text-6xl);
+    }
+
+    .updates-grid,
+    .trending-grid,
+    .popular-grid,
+    .new-series-grid,
+    .recommendation-grid {
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    }
+}
+
+/* ========== TOUCH DEVICES ========== */
+@media (hover: none) and (pointer: coarse) {
+    button {
+        min-width: 44px;
+        min-height: 44px;
+    }
+
+    .card:active {
+        box-shadow: var(--shadow-xl), var(--shadow-glow);
+    }
+}
+
+/* ========== DARK MODE PREFERENCE ========== */
+@media (prefers-color-scheme: dark) {
+    :root {
+        color-scheme: dark;
+    }
+}
+
+/* ========== LIGHT MODE (if needed in future) ========== */
+@media (prefers-color-scheme: light) {
+    /* Placeholder for light mode */
+}
+
+/* ========== REDUCED MOTION ========== */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
