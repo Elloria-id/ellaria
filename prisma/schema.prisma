@@ -1,0 +1,89 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id         String   @id @default(cuid())
+  email      String   @unique
+  name       String?
+  avatar     String?
+  role       Role     @default(USER)
+  bookmarks  Bookmark[]
+  histories  History[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+enum Role {
+  USER
+  ADMIN
+  TRANSLATOR
+}
+
+model Series {
+  id            String    @id @default(cuid())
+  slug          String    @unique
+  title         String
+  altTitle      String?
+  coverUrl      String?
+  bannerUrl     String?
+  genres        String[]  @default([])
+  status        String
+  type          String
+  author        String?
+  artist        String?
+  translator    String?
+  rating        Float     @default(0)
+  views         Int       @default(0)
+  synopsis      String?
+  chapters      Chapter[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Chapter {
+  id         String   @id @default(cuid())
+  series     Series   @relation(fields: [seriesId], references: [id])
+  seriesId   String
+  title      String
+  number     Float
+  images     String[] @default([])
+  isPremium  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Bookmark {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  series    Series   @relation(fields: [seriesId], references: [id])
+  seriesId  String
+  status    BookmarkStatus @default(READING)
+  progress  Float    @default(0)
+  createdAt DateTime @default(now())
+}
+
+enum BookmarkStatus {
+  READING
+  COMPLETED
+  PLAN_TO_READ
+  ON_HOLD
+  DROPPED
+}
+
+model History {
+  id         String   @id @default(cuid())
+  user       User     @relation(fields: [userId], references: [id])
+  userId     String
+  series     Series   @relation(fields: [seriesId], references: [id])
+  seriesId   String
+  chapterId  String?
+  progress   Float    @default(0)
+  lastReadAt DateTime @default(now())
+}
