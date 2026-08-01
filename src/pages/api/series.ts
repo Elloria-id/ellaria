@@ -1,17 +1,11 @@
-// Basic API route - list series (mock)
 import type { NextApiRequest, NextApiResponse } from 'next'
+import prisma from '@/lib/prisma'
 
-type Series = {
-  id: string
-  title: string
-  slug: string
-  coverUrl?: string
-}
-
-export default function handler(req: NextApiRequest, res: NextApiResponse<Series[]>) {
-  const data: Series[] = [
-    { id: 's1', title: 'Sample Series 1', slug: 'sample-series-1', coverUrl: '/placeholder.png' },
-    { id: 's2', title: 'Sample Series 2', slug: 'sample-series-2', coverUrl: '/placeholder.png' },
-  ]
-  res.status(200).json(data)
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  const { method } = req
+  if (method === 'GET') {
+    const series = await prisma.series.findMany({ take: 30, orderBy: { createdAt: 'desc' } })
+    return res.status(200).json(series)
+  }
+  res.status(405).end()
 }
