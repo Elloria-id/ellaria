@@ -1,5 +1,9 @@
-# Object file
-*.o
-
-# Ada Library Information
-*.ali
+.next
+node_modules
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+coverage
+.DS_Store
+/public/legacy
