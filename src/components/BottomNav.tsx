@@ -6,7 +6,7 @@ export default function BottomNav() {
         <a href="/search">Search</a>
         <a href="/bookmark">Bookmark</a>
         <a href="/history">History</a>
-        <a href="/profile">Profile</a>
+        <a href="/pages/leaderboard/leaderboard.html">Leaderboard</a>
       </div>
     </nav>
   )
