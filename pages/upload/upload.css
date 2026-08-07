@@ -1,0 +1,2 @@
+/* Upload styles */
+#upload-form{display:flex;flex-direction:column;gap:var(--sp-md);max-width:720px}

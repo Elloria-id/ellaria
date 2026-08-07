@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Settings - Ellaria</title>
+  <link rel="stylesheet" href="/css/variables.css">
+  <link rel="stylesheet" href="/css/global.css">
+  <link rel="stylesheet" href="settings.css">
+</head>
+<body>
+  <main class="main-content">
+    <div class="section-container">
+      <h1>Settings</h1>
+      <form id="settings-form">
+        <label>Language<select name="lang"><option>ID</option><option>EN</option></select></label>
+        <label>Theme<select name="theme"><option>Dark</option><option>Light</option></select></label>
+        <button class="btn" type="submit">Save</button>
+      </form>
+    </div>
+  </main>
+  <script>document.getElementById('settings-form').addEventListener('submit',e=>{e.preventDefault();alert('TODO: save settings to user profile')})</script>
+</body>
+</html>

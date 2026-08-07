@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Upload Series - Ellaria</title>
+  <link rel="stylesheet" href="/css/variables.css">
+  <link rel="stylesheet" href="/css/global.css">
+  <link rel="stylesheet" href="upload.css">
+</head>
+<body>
+  <main class="main-content">
+    <div class="section-container">
+      <h1>Upload Series</h1>
+      <form id="upload-form">
+        <label>Title<input type="text" name="title" required></label>
+        <label>Description<textarea name="description"></textarea></label>
+        <label>Cover<input type="file" name="cover"></label>
+        <label>Type<select name="type"><option>Novel</option><option>Manga</option></select></label>
+        <button class="btn" type="submit">Submit</button>
+      </form>
+      <p class="muted">/* TODO: implement server upload & validation */</p>
+    </div>
+  </main>
+  <script src="upload.js" defer></script>
+</body>
+</html>

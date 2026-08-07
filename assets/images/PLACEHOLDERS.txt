@@ -1,0 +1,16 @@
+List of placeholder image paths used by UI. Add real images or replace these with your CDN links.
+
+/assets/images/covers/cover1.jpg
+/assets/images/covers/cover2.jpg
+/assets/images/covers/cover3.jpg
+/assets/images/covers/cover4.jpg
+/assets/images/covers/cover5.jpg
+/assets/images/covers/cover6.jpg
+/assets/images/covers/cover7.jpg
+/assets/images/covers/cover8.jpg
+
+/assets/images/avatar/default.jpg
+/assets/images/avatar/avatar1.jpg
+/assets/images/avatar/avatar2.jpg
+
+Add them to the `public/assets/images/...` folder in your project.
