@@ -1,34 +1,27 @@
-INTEGRATION NOTES
 
-This file lists common integration points and guidance to connect the static UI to your backend services (Firestore, Prisma, payment gateways, etc.).
 
-1) Authentication
-- Files: pages/login/login.html, pages/register/register.html
-- TODO: replace stubbed login handlers with Firebase Auth or NextAuth. Example:
-  async function signInWithGoogle() { /* TODO: Firebase Google sign-in */ }
+---
+Additional Integration Notes for core-interactive sprint
 
-2) Data storage (series, chapters, users, bookmarks)
-- Files: pages/*/ *.js where DATA arrays exist (look for: /* TODO: replace with Firestore / API */)
-- Recommendation: Create API routes (/api/...) that return JSON; have UI call those endpoints. If using Firebase, use Firestore queries.
+The project includes a small storage abstraction at js/storageService.js. This centralizes usage of localStorage so you can replace it easily with server-side API or Firestore:
 
-3) Wallet / Payments
-- Files: pages/wallet/wallet.js, pages/shop/shop.js
-- TODO: implement server-side payment session creation (QRIS, other gateways) — do NOT handle secret keys on client.
+- StorageService.get(key, fallback)
+- StorageService.set(key, value)
+- StorageService.remove(key)
+- StorageService.exportJSON(key) / importJSON(key, json)
+- StorageService.exportCSV(key)
 
-4) Reader progress, bookmarks, history
-- Store per-user progress in Firestore or your relational DB via Prisma. Use anonymous user IDs for guests.
+Files created in Sprint 1 use keys:
+- bookmarks -> 'bookmarks'
+- bookmark folders -> 'bookmarkFolders'
+- history -> 'history'
+- reader prefs -> 'reader:preferences'
+- reader progress -> 'reader:progress'
+- series metadata -> 'series:meta'
 
-5) Realtime (chat, notifications)
-- Use Firebase Realtime Database or Firestore with onSnapshot for realtime updates; or use WebSockets/server for scale.
+TODO when switching to Firestore / API:
+- Implement an async service that replaces StorageService and maps get/set/remove to Firestore reads/writes or to REST endpoints.
+- Migrate data model: series:meta can be a collection 'series' with fields: views, likes, bookmarks, comments.
+- Ensure authentication: guard write operations on server side and use user-scoped collections for bookmarks/history.
 
-6) Admin / Dashboards
-- Protect routes server-side; only authorized users should read/write admin endpoints.
-
-7) Assets
-- Place cover images at /assets/images/covers/cover1.jpg ... cover8.jpg
-- Place avatars at /assets/images/avatar/*.jpg
-
-8) Replacing stubs
-- Search for the string: "/* TODO: replace with Firestore / API */" to find integration points.
-
-If you want, I can help wire specific endpoints (e.g., bookmarks with Firebase) once you provide project credentials or allow me to scaffold server-side code.
+---

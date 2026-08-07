@@ -1,84 +1,62 @@
-// Detail Page JavaScript
+/* pages/detail/detail.js
+ * Small wiring for detail page: populate series info and manage counters (view/like/bookmark)
+ * Uses query param `?id=SERIESID` to identify series. Data stored in localStorage under 'series:meta'
+ */
 
-const DetailController = {
-    seriesId: null,
-    series: null,
+const DetailPage = (function(){
+  const KEY = 'series:meta';
 
-    init: function() {
-        const params = new URLSearchParams(window.location.search);
-        this.seriesId = params.get('id');
-        this.loadSeriesData();
-    },
+  function getSeriesId(){
+    const params = new URLSearchParams(window.location.search);
+    return params.get('id') || 'series_example_1';
+  }
 
-    loadSeriesData: function() {
-        // Sample data - replace with API call
-        const seriesData = {
-            1: {
-                id: 1,
-                title: 'Solo Leveling',
-                cover: '/assets/images/covers/solo-leveling.jpg',
-                author: 'Chugong',
-                artist: 'Dubu (Redice Studio)',
-                translator: 'Tim Penerjemah Ellaria',
-                genre: 'Action, Fantasy, Supernatural',
-                country: 'Korean',
-                status: 'Completed',
-                rating: 9.8,
-                views: 150000,
-                bookmarks: 45000,
-                description: 'Sung Jinwoo adalah pemburu E-Rank yang lemah ketika tiba-tiba dia terpilih sebagai "pemain" dan mendapat kesempatan untuk naik level. Setiap pembunuhan membawanya lebih dekat ke kekuatan tertinggi.'
-            }
-        };
-        
-        this.series = seriesData[this.seriesId];
-        if (this.series) {
-            this.renderDetail();
-        }
-    },
+  function loadSeriesMeta(){
+    const map = StorageService.get(KEY, {});
+    return map[getSeriesId()] || { id:getSeriesId(), title:'Series Title', author:'Unknown', cover:'/assets/images/covers/cover1.jpg', genre:['Action'], views:0, likes:0, bookmarks:0, comments:[] };
+  }
 
-    renderDetail: function() {
-        const header = document.getElementById('detail-header');
-        const info = document.getElementById('series-info');
+  function saveSeriesMeta(meta){
+    const map = StorageService.get(KEY, {});
+    map[meta.id] = meta; StorageService.set(KEY, map);
+  }
 
-        header.innerHTML = `
-            <div class="detail-header-content">
-                <img src="${this.series.cover}" alt="${this.series.title}" class="detail-cover">
-                <div class="detail-info">
-                    <h1 class="detail-title">${this.series.title}</h1>
-                    <div class="detail-meta">
-                        <div class="meta-item"><span class="meta-label">Status</span><span class="meta-value">${this.series.status}</span></div>
-                        <div class="meta-item"><span class="meta-label">Rating</span><span class="meta-value">★ ${this.series.rating}</span></div>
-                        <div class="meta-item"><span class="meta-label">Views</span><span class="meta-value">${this.series.views.toLocaleString()}</span></div>
-                        <div class="meta-item"><span class="meta-label">Bookmarks</span><span class="meta-value">${this.series.bookmarks.toLocaleString()}</span></div>
-                    </div>
-                    <div class="detail-actions">
-                        <button class="detail-btn" onclick="window.location.href='/pages/reader/reader.html?id=${this.series.id}'">Baca Sekarang</button>
-                        <button class="detail-btn detail-btn-secondary">+ Bookmark</button>
-                        <button class="detail-btn detail-btn-secondary">â❤️ Favorit</button>
-                    </div>
-                    <p class="description">${this.series.description}</p>
-                </div>
-            </div>
-        `;
-
-        info.innerHTML = `
-            <div></div>
-            <div>
-                <h3 style="margin-bottom: var(--sp-lg);">Informasi Series</h3>
-                <dl style="display: grid; gap: var(--sp-lg);">
-                    <div><dt style="color: var(--text-secondary); font-size: var(--text-sm);">Penulis</dt><dd>${this.series.author}</dd></div>
-                    <div><dt style="color: var(--text-secondary); font-size: var(--text-sm);">Artis</dt><dd>${this.series.artist}</dd></div>
-                    <div><dt style="color: var(--text-secondary); font-size: var(--text-sm);">Penerjemah</dt><dd>${this.series.translator}</dd></div>
-                    <div><dt style="color: var(--text-secondary); font-size: var(--text-sm);">Genre</dt><dd>${this.series.genre}</dd></div>
-                    <div><dt style="color: var(--text-secondary); font-size: var(--text-sm);">Negara</dt><dd>${this.series.country}</dd></div>
-                </dl>
-            </div>
-        `;
+  function incrementView(){
+    const sid = getSeriesId(); const meta = loadSeriesMeta();
+    // only count once per session
+    const sessionKey = 'viewed:' + sid;
+    if(!sessionStorage.getItem(sessionKey)){
+      meta.views = (meta.views||0) + 1; saveSeriesMeta(meta); sessionStorage.setItem(sessionKey, '1');
     }
-};
+  }
 
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => DetailController.init());
-} else {
-    DetailController.init();
-}
+  function render(){
+    const container = document.getElementById('series-info'); if(!container) return;
+    const meta = loadSeriesMeta();
+    container.innerHTML = `
+      <div class="detail-card">
+        <img src="${meta.cover}" alt="${meta.title}" class="detail-cover">
+        <div class="detail-body">
+          <h2 class="detail-title">${meta.title}</h2>
+          <div class="detail-meta">${meta.genre.join(', ')} • by ${meta.author}</div>
+          <div class="detail-stats">Views: <strong id="meta-views">${meta.views}</strong> • Likes: <strong id="meta-likes">${meta.likes}</strong> • Bookmarks: <strong id="meta-bookmarks">${meta.bookmarks}</strong></div>
+          <div class="detail-actions">
+            <button class="btn" id="btn-like">Like</button>
+            <button class="btn" id="btn-bookmark">Bookmark</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('btn-like').addEventListener('click', ()=>{ like(); });
+    document.getElementById('btn-bookmark').addEventListener('click', ()=>{ bookmark(); });
+  }
+
+  function like(){ const meta = loadSeriesMeta(); meta.likes = (meta.likes||0) + 1; saveSeriesMeta(meta); document.getElementById('meta-likes').textContent = meta.likes; }
+  function bookmark(){ const meta = loadSeriesMeta(); meta.bookmarks = (meta.bookmarks||0) + 1; saveSeriesMeta(meta); document.getElementById('meta-bookmarks').textContent = meta.bookmarks; }
+
+  function init(){ incrementView(); render(); }
+  return { init };
+})();
+
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', ()=> DetailPage.init()); else DetailPage.init();
