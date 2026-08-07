@@ -1,0 +1,3 @@
+/* Admin styles */
+.admin-panels{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:var(--sp-md);margin-top:var(--sp-md)}
+.panel{background:rgba(10,14,20,0.5);padding:var(--sp-md);border-radius:10px}

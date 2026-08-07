@@ -1,0 +1,4 @@
+/* Wallet styles */
+.wallet-panel{background:rgba(10,14,20,0.5);padding:var(--sp-md);border-radius:12px;border:1px solid rgba(255,255,255,0.03);}
+.wallet-balance{font-size:var(--text-xl);margin-bottom:var(--sp-md);}
+.wallet-transactions{margin-top:var(--sp-md)}

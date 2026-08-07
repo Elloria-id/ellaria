@@ -1,0 +1,4 @@
+/* Chat styles (stub) */
+.chat-window{background:rgba(10,14,20,0.4);padding:var(--sp-md);border-radius:12px}
+.messages{min-height:200px}
+.chat-input{display:flex;gap:8px;margin-top:var(--sp-md)}
