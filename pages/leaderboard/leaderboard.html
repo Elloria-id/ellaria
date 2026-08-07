@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Leaderboard - Ellaria エル">
+    <link rel="stylesheet" href="/css/variables.css">
+    <link rel="stylesheet" href="/css/reset.css">
+    <link rel="stylesheet" href="/css/global.css">
+    <link rel="stylesheet" href="/css/navbar.css">
+    <link rel="stylesheet" href="/css/responsive.css">
+    <link rel="stylesheet" href="leaderboard.css">
+    <title>Leaderboard - Ellaria エル</title>
+</head>
+<body>
+    <div class="background-aurora">
+        <div class="aurora-light"></div>
+        <div class="stars"></div>
+    </div>
+
+    <nav class="navbar" id="navbar">
+        <div class="navbar-container">
+            <div class="navbar-logo">
+                <a href="/" class="logo-link">
+                    <span class="logo-text">Ellaria</span>
+                    <span class="logo-jp">エル</span>
+                </a>
+            </div>
+            <button class="menu-toggle" id="menu-toggle" aria-label="Toggle menu">
+                <span></span><span></span><span></span>
+            </button>
+            <div class="navbar-menu" id="navbar-menu">
+                <ul class="navbar-list">
+                    <li><a href="/" class="navbar-link">Beranda</a></li>
+                    <li><a href="/pages/explore/explore.html" class="navbar-link">Jelajahi</a></li>
+                    <li><a href="#" class="navbar-link">Genre</a></li>
+                    <li><a href="/pages/community/community.html" class="navbar-link">Komunitas</a></li>
+                    <li><a href="/pages/shop/shop.html" class="navbar-link">Toko</a></li>
+                    <li><a href="/pages/leaderboard/leaderboard.html" class="navbar-link active">Leaderboard</a></li>
+                </ul>
+            </div>
+            <div class="navbar-actions">
+                <button class="search-btn" id="search-btn" aria-label="Search">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <path d="m21 21-4.35-4.35"></path>
+                    </svg>
+                </button>
+                <div class="profile-menu" id="profile-menu">
+                    <button class="profile-btn" id="profile-btn">
+                        <img id="profile-avatar" src="/assets/images/avatar/default.jpg" alt="Profile" class="profile-avatar">
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div class="section-container">
+            <header class="leaderboard-header">
+                <h1>Leaderboard</h1>
+                <p class="muted">Peringkat series dan creator terpopuler — diperbarui secara berkala.</p>
+                <div class="leaderboard-controls">
+                    <div class="tabs">
+                        <button class="tab active" data-range="daily">Daily</button>
+                        <button class="tab" data-range="weekly">Weekly</button>
+                        <button class="tab" data-range="monthly">Monthly</button>
+                    </div>
+                    <div class="search">
+                        <input type="text" id="leaderboard-search" placeholder="Cari series atau creator...">
+                    </div>
+                </div>
+            </header>
+
+            <section class="leaderboard-section">
+                <div class="leaderboard-grid" id="leaderboard-grid">
+                    <!-- Cards inserted by JS -->
+                </div>
+
+                <div class="leaderboard-footer">
+                    <button id="load-more" class="btn">Muat Lebih</button>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <script src="/js/main.js" defer></script>
+    <script src="/js/navbar.js" defer></script>
+    <script src="leaderboard.js" defer></script>
+</body>
+</html>
