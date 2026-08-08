@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Admin Payments - Ellaria</title>
+  <link rel="stylesheet" href="/css/variables.css">
+  <link rel="stylesheet" href="/css/global.css">
+</head>
+<body>
+  <main class="main-content">
+    <div class="section-container">
+      <h1>Payments (Admin)</h1>
+      <h3>Pending Withdrawals</h3>
+      <div id="pending-list"></div>
+    </div>
+  </main>
+
+  <script src="/js/storageService.js" defer></script>
+  <script src="/js/paymentsService.js" defer></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', ()=>{
+      PaymentsService.seedIfEmpty();
+      function render(){
+        const txs = PaymentsService.listTransactions();
+        const pending = txs.filter(t=> t.type==='withdraw' && t.status==='pending');
+        const html = pending.length ? pending.map(p=>`<div style="padding:8px;border-radius:8px;background:rgba(255,255,255,0.02);margin-bottom:8px"><strong>${p.userId}</strong><div class="muted">Rp ${p.amount.toLocaleString('id-ID')}</div><div style="margin-top:8px"><button class="btn" data-id="${p.id}" data-action="approve">Approve</button><button class="btn btn-secondary" data-id="${p.id}" data-action="decline">Decline</button></div></div>`).join('') : '<p class="muted">No pending withdrawals</p>';
+        document.getElementById('pending-list').innerHTML = html;
+        document.querySelectorAll('button[data-action]').forEach(b=> b.addEventListener('click', (e)=>{
+          const id = e.currentTarget.dataset.id; const action = e.currentTarget.dataset.action;
+          try{ PaymentsService.processWithdraw(id, action==='approve' ? 'approve' : 'decline'); alert('Processed'); render(); } catch(err){ alert(err.message); }
+        }));
+      }
+      render();
+    });
+  </script>
+</body>
+</html>
