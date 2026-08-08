@@ -1,0 +1,4 @@
+/* pages/admin/upload.css */
+#uploads-list .upload-item{padding:10px;border-radius:8px;background:rgba(255,255,255,0.02);margin-bottom:8px;display:flex;justify-content:space-between}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center}
+.modal-content{background:var(--surface);padding:var(--sp-md);border-radius:12px;max-width:520px;width:100%}

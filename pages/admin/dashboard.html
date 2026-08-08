@@ -6,19 +6,25 @@
   <title>Admin Dashboard - Ellaria</title>
   <link rel="stylesheet" href="/css/variables.css">
   <link rel="stylesheet" href="/css/global.css">
-  <link rel="stylesheet" href="admin.css">
 </head>
 <body>
   <main class="main-content">
     <div class="section-container">
-      <h1>Admin Dashboard</h1>
-      <p class="muted">Skeleton admin tools: users, content, payments.</p>
-      <div class="admin-panels">
-        <div class="panel">Users</div>
-        <div class="panel">Content</div>
-        <div class="panel">Payments</div>
+      <h1>Creator Admin Dashboard</h1>
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        <div style="flex:1;min-width:240px;background:rgba(10,14,20,0.5);padding:12px;border-radius:8px;border:1px solid rgba(255,255,255,0.03)">
+          <h3>Stats</h3>
+          <div id="stats-area"></div>
+        </div>
+        <div style="flex:2;min-width:320px;background:rgba(10,14,20,0.5);padding:12px;border-radius:8px;border:1px solid rgba(255,255,255,0.03)">
+          <h3>Uploads</h3>
+          <div id="admin-uploads"></div>
+        </div>
       </div>
     </div>
   </main>
+  <script src="/js/storageService.js" defer></script>
+  <script src="/js/uploadService.js" defer></script>
+  <script src="admin/dashboard.js" defer></script>
 </body>
 </html>
