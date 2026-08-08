@@ -1,0 +1,17 @@
+{
+  "profile": {
+    "followers": "Followers",
+    "follow": "Follow",
+    "unfollow": "Unfollow",
+    "bio": "Bio"
+  },
+  "comments": {
+    "reply": "Reply",
+    "write_comment": "Write a comment...",
+    "post": "Post"
+  },
+  "social": {
+    "no_profile": "Profile not found",
+    "edit_profile": "Edit profile"
+  }
+}
