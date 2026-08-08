@@ -1,91 +1,57 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Search - Ellaria エル">
-    <link rel="stylesheet" href="/css/variables.css">
-    <link rel="stylesheet" href="/css/reset.css">
-    <link rel="stylesheet" href="/css/global.css">
-    <link rel="stylesheet" href="/css/navbar.css">
-    <link rel="stylesheet" href="/css/responsive.css">
-    <link rel="stylesheet" href="search.css">
-    <title>Search - Ellaria エル</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Search - Ellaria</title>
+  <link rel="stylesheet" href="/css/variables.css">
+  <link rel="stylesheet" href="/css/global.css">
+  <link rel="stylesheet" href="search.css">
 </head>
 <body>
-    <div class="background-aurora">
-        <div class="aurora-light"></div>
-        <div class="stars"></div>
+  <div class="background-aurora"><div class="aurora-light"></div><div class="stars"></div></div>
+  <nav class="navbar" id="navbar"> <!-- navbar markup reused -->
+    <div class="navbar-container">
+      <div class="navbar-logo"><a href="/" class="logo-link"><span class="logo-text">Ellaria</span><span class="logo-jp">エル</span></a></div>
     </div>
+  </nav>
 
-    <nav class="navbar" id="navbar">
-        <div class="navbar-container">
-            <div class="navbar-logo">
-                <a href="/" class="logo-link">
-                    <span class="logo-text">Ellaria</span>
-                    <span class="logo-jp">エル</span>
-                </a>
-            </div>
-            <button class="menu-toggle" id="menu-toggle">
-                <span></span><span></span><span></span>
-            </button>
-            <div class="navbar-menu" id="navbar-menu">
-                <ul class="navbar-list">
-                    <li><a href="/" class="navbar-link">Beranda</a></li>
-                    <li><a href="/pages/explore/explore.html" class="navbar-link">Jelajahi</a></li>
-                </ul>
-            </div>
-            <div class="navbar-actions">
-                <div class="profile-menu" id="profile-menu">
-                    <button class="profile-btn" id="profile-btn">
-                        <img id="profile-avatar" src="/assets/images/avatar/default.jpg" alt="Profile" class="profile-avatar">
-                    </button>
-                </div>
-            </div>
+  <main class="main-content">
+    <div class="section-container">
+      <div class="search-header">
+        <h1>Cari Series</h1>
+        <div class="search-row">
+          <div class="search-box">
+            <input type="text" id="search-query" placeholder="Cari judul, penulis, atau translator..." class="search-input">
+            <button id="voice-search" class="btn" title="Voice search">🎤</button>
+            <button id="search-btn" class="btn">Cari</button>
+          </div>
+          <div class="search-filters" id="search-filters">
+            <select id="filter-genre" multiple size="3"></select>
+            <select id="filter-type" multiple size="3"></select>
+            <select id="filter-status" multiple size="3"></select>
+            <input id="filter-author" placeholder="Author" class="filter-input">
+            <input id="filter-year" placeholder="Year" class="filter-input">
+            <select id="sort-by"><option value="relevance">Relevance</option><option value="newest">Newest</option><option value="popular">Popular</option><option value="alphabet">Alphabet</option></select>
+          </div>
         </div>
-    </nav>
+      </div>
 
-    <main class="main-content">
-        <div class="section-container">
-            <div class="search-header">
-                <h1>Cari Series</h1>
-                <div class="search-box">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                        <circle cx="11" cy="11" r="8"></circle>
-                        <path d="m21 21-4.35-4.35"></path>
-                    </svg>
-                    <input type="text" id="search-input" placeholder="Cari judul, penulis, atau translator..." class="search-input">
-                </div>
-            </div>
+      <section class="trending-searches" id="trending-searches">
+        <h3>Trending Search</h3>
+        <div id="trending-tags" class="tags"></div>
+      </section>
 
-            <!-- Recent Searches -->
-            <section class="recent-searches" id="recent-searches" style="display: none;">
-                <h3>Pencarian Terakhir</h3>
-                <div class="tags" id="recent-tags"></div>
-            </section>
+      <section class="search-results" id="search-results">
+        <h3>Hasil Pencarian</h3>
+        <div id="results-grid" class="results-grid"></div>
+        <div id="results-pager" class="results-pager"><button id="load-more-results" class="btn">Muat Lebih</button></div>
+      </section>
+    </div>
+  </main>
 
-            <!-- Trending Searches -->
-            <section class="trending-searches" id="trending-searches" style="display: none;">
-                <h3>Pencarian Trending</h3>
-                <div class="tags" id="trending-tags"></div>
-            </section>
-
-            <!-- Search Results -->
-            <section class="search-results" id="search-results" style="display: none;">
-                <h3>Hasil Pencarian</h3>
-                <div class="results-grid" id="results-grid"></div>
-            </section>
-
-            <!-- No Results -->
-            <div class="no-results" id="no-results" style="display: none;">
-                <div class="no-results-icon">🔍</div>
-                <h3>Tidak ada hasil</h3>
-            </div>
-        </div>
-    </main>
-
-    <script src="/js/main.js" defer></script>
-    <script src="/js/navbar.js" defer></script>
-    <script src="search.js" defer></script>
+  <script src="/js/searchService.js" defer></script>
+  <script src="/js/storageService.js" defer></script>
+  <script src="search.js" defer></script>
 </body>
 </html>
