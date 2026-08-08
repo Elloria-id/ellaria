@@ -1,80 +1,31 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Register - Ellaria エル">
-    <link rel="stylesheet" href="/css/variables.css">
-    <link rel="stylesheet" href="/css/reset.css">
-    <link rel="stylesheet" href="/css/global.css">
-    <link rel="stylesheet" href="/css/animation.css">
-    <link rel="stylesheet" href="auth.css">
-    <title>Daftar - Ellaria エル</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Register - Ellaria</title>
+  <link rel="stylesheet" href="/css/variables.css">
+  <link rel="stylesheet" href="/css/global.css">
+  <link rel="stylesheet" href="register.css">
 </head>
 <body>
-    <div class="background-aurora">
-        <div class="aurora-light"></div>
-        <div class="stars"></div>
-    </div>
-
-    <div class="auth-container">
-        <div class="auth-card animate-slideUp">
-            <div class="auth-header">
-                <h1>Ellaria<span class="jp">エル</span></h1>
-                <p>Buat akun baru Anda</p>
-            </div>
-
-            <form id="register-form" class="auth-form">
-                <div class="form-group">
-                    <label for="register-username">Username</label>
-                    <input type="text" id="register-username" name="username" required class="form-input">
-                    <span class="error-message" id="username-error"></span>
-                </div>
-
-                <div class="form-group">
-                    <label for="register-email">Email</label>
-                    <input type="email" id="register-email" name="email" required class="form-input">
-                    <span class="error-message" id="email-error"></span>
-                </div>
-
-                <div class="form-group">
-                    <label for="register-password">Password</label>
-                    <div class="password-input-wrapper">
-                        <input type="password" id="register-password" name="password" required class="form-input">
-                        <button type="button" class="toggle-password" id="toggle-password">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                                <circle cx="12" cy="12" r="3"></circle>
-                            </svg>
-                        </button>
-                    </div>
-                    <span class="error-message" id="password-error"></span>
-                </div>
-
-                <div class="form-group">
-                    <label for="register-confirm">Konfirmasi Password</label>
-                    <input type="password" id="register-confirm" name="confirm" required class="form-input">
-                    <span class="error-message" id="confirm-error"></span>
-                </div>
-
-                <div class="form-group checkbox">
-                    <label>
-                        <input type="checkbox" id="terms" name="terms" required>
-                        Saya setuju dengan <a href="#">Syarat & Ketentuan</a>
-                    </label>
-                </div>
-
-                <button type="submit" class="btn btn-primary">Daftar</button>
-                <span class="error-message" id="form-error"></span>
-            </form>
-
-            <div class="auth-footer">
-                <p>Sudah punya akun? <a href="/pages/login/login.html">Masuk di sini</a></p>
-            </div>
+  <main class="main-content">
+    <div class="section-container auth-card">
+      <h1>Daftar</h1>
+      <form id="register-form">
+        <label>Nama Lengkap<input type="text" name="displayName" required></label>
+        <label>Email<input type="email" name="email" required></label>
+        <label>Password<input type="password" name="password" required></label>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
+          <button class="btn" type="submit">Daftar</button>
+          <a class="btn btn-secondary" href="/pages/login/login.html">Masuk</a>
         </div>
+      </form>
+      <p class="muted" style="margin-top:12px">Catatan: Ini adalah stub. Ganti dengan Firebase/NextAuth untuk produksi.</p>
     </div>
-
-    <script src="/js/main.js" defer></script>
-    <script src="auth.js" defer></script>
+  </main>
+  <script src="/js/storageService.js" defer></script>
+  <script src="/js/authService.js" defer></script>
+  <script src="register.js" defer></script>
 </body>
 </html>
