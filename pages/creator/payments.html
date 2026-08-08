@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Creator Payments - Ellaria</title>
+  <link rel="stylesheet" href="/css/variables.css">
+  <link rel="stylesheet" href="/css/global.css">
+  <link rel="stylesheet" href="payments.css">
+</head>
+<body>
+  <main class="main-content">
+    <div class="section-container">
+      <h1>Payments</h1>
+      <div id="balance" style="margin-bottom:12px"></div>
+      <div style="margin-bottom:12px"><label>Amount to withdraw (Rp)<input type="number" id="withdraw-amount" min="10000" step="1000"></label><button class="btn" id="withdraw-btn">Request Withdraw</button></div>
+      <h3>Transactions</h3>
+      <div id="tx-list"></div>
+    </div>
+  </main>
+
+  <script src="/js/storageService.js" defer></script>
+  <script src="/js/paymentsService.js" defer></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', ()=>{
+      PaymentsService.seedIfEmpty();
+      const user = window.AuthService && AuthService.getUser ? AuthService.getUser() : { uid: 'alice' };
+      const userId = user.uid;
+      function render(){
+        const bal = PaymentsService.getBalance(userId);
+        document.getElementById('balance').innerHTML = `<div class="muted">Balance</div><div style="font-weight:700">Rp ${Number(bal).toLocaleString('id-ID')}</div>`;
+        const txs = PaymentsService.listTransactions(userId);
+        const list = txs.length ? txs.map(t=>`<div style="padding:8px;border-radius:8px;background:rgba(255,255,255,0.02);margin-bottom:8px"><strong>${t.type.toUpperCase()}</strong><div class="muted">Rp ${Number(t.amount).toLocaleString('id-ID')} • ${t.status}</div><div style="margin-top:8px">${t.meta && t.meta.note? t.meta.note : ''}</div></div>`).join('') : '<p class="muted">No transactions</p>';
+        document.getElementById('tx-list').innerHTML = list;
+      }
+
+      document.getElementById('withdraw-btn').addEventListener('click', ()=>{
+        const amount = Number(document.getElementById('withdraw-amount').value);
+        if(!amount || amount < 10000) return alert('Minimum withdrawal 10,000');
+        try{
+          const tx = PaymentsService.requestWithdraw(userId, amount, { destination:'bank:REDACTED' });
+          NotifService.push({ title:'Withdraw requested', body:`Withdraw Rp ${amount.toLocaleString('id-ID')} requested`, data:{ txId: tx.id } });
+          alert('Withdrawal requested (pending approval)'); render();
+        } catch(err){ alert(err.message); }
+      });
+
+      render();
+    });
+  </script>
+</body>
+</html>
