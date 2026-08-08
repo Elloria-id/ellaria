@@ -1,4 +1,8 @@
-/* Wallet styles */
-.wallet-panel{background:rgba(10,14,20,0.5);padding:var(--sp-md);border-radius:12px;border:1px solid rgba(255,255,255,0.03);}
-.wallet-balance{font-size:var(--text-xl);margin-bottom:var(--sp-md);}
+/* pages/wallet/wallet.css */
+.wallet-panel{background:rgba(10,14,20,0.5);padding:var(--sp-md);border-radius:12px;border:1px solid rgba(255,255,255,0.03);max-width:900px;margin:0 auto}
+.wallet-header{display:flex;justify-content:space-between;align-items:center}
+.wallet-balance{font-size:var(--text-2xl);font-weight:700}
 .wallet-transactions{margin-top:var(--sp-md)}
+.transaction{padding:8px;border-radius:8px;background:rgba(255,255,255,0.02);margin-bottom:8px;display:flex;justify-content:space-between}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center}
+.modal-content{background:var(--surface);padding:var(--sp-md);border-radius:12px;max-width:520px;width:100%}
