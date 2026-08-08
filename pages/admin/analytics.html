@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Analytics Dev Dashboard - Ellaria</title>
+  <link rel="stylesheet" href="/css/variables.css">
+  <link rel="stylesheet" href="/css/global.css">
+  <style>
+    .events-list{max-height:60vh;overflow:auto;background:rgba(255,255,255,0.02);padding:12px;border-radius:8px}
+    .event-item{padding:8px;border-bottom:1px solid rgba(255,255,255,0.03)}
+    .controls{display:flex;gap:8px;margin-bottom:12px}
+  </style>
+</head>
+<body>
+  <main class="main-content">
+    <div class="section-container">
+      <h1>Analytics (Dev)</h1>
+      <div class="controls">
+        <button class="btn" id="refresh">Refresh</button>
+        <button class="btn" id="export">Export JSON</button>
+        <button class="btn btn-secondary" id="clear">Clear Events</button>
+        <label style="margin-left:auto">Opt-out <input type="checkbox" id="optout"></label>
+      </div>
+
+      <h3>Events</h3>
+      <div id="events" class="events-list"></div>
+
+      <h3 style="margin-top:16px">A/B Assignments</h3>
+      <div id="ab-list" class="events-list"></div>
+    </div>
+  </main>
+
+  <script src="/js/storageService.js" defer></script>
+  <script src="/js/analyticsService.js" defer></script>
+  <script src="/js/abTestService.js" defer></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', ()=>{
+      const evEl = document.getElementById('events'); const abEl = document.getElementById('ab-list');
+      const refresh = ()=>{ const events = AnalyticsService.getEvents(); evEl.innerHTML = events.map(e=>`<div class="event-item"><strong>${e.type}${e.name?': '+e.name:''}</strong><div class="muted">${new Date(e.ts).toLocaleString()}</div><pre style="white-space:pre-wrap;margin-top:6px">${JSON.stringify(e.params||e, null, 2)}</pre></div>`).join('');
+        const abs = AbTest.list(); abEl.innerHTML = Object.keys(abs).length? Object.keys(abs).map(k=>`<div class="event-item"><strong>${k}</strong><div class="muted">${JSON.stringify(abs[k])}</div></div>`).join(''):'<p class="muted">No assignments</p>';
+      };
+
+      document.getElementById('refresh').addEventListener('click', refresh);
+      document.getElementById('export').addEventListener('click', ()=>{ const data = AnalyticsService.exportEvents(); const blob = new Blob([data], { type:'application/json' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'analytics-events.json'; a.click(); URL.revokeObjectURL(url); });
+      document.getElementById('clear').addEventListener('click', ()=>{ if(confirm('Clear events?')){ AnalyticsService.clearEvents(); refresh(); } });
+      const opt = document.getElementById('optout'); opt.checked = AnalyticsService.isOptedOut(); opt.addEventListener('change', ()=>{ AnalyticsService.optOutToggle(opt.checked); });
+
+      refresh();
+    });
+  </script>
+</body>
+</html>
