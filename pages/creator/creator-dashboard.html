@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Creator Dashboard - Ellaria</title>
+  <link rel="stylesheet" href="/css/variables.css">
+  <link rel="stylesheet" href="/css/global.css">
+</head>
+<body>
+  <main class="main-content">
+    <div class="section-container">
+      <h1>Your Creator Dashboard</h1>
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        <div style="flex:1;min-width:320px;background:rgba(10,14,20,0.5);padding:12px;border-radius:8px;border:1px solid rgba(255,255,255,0.03)">
+          <h3>Drafts</h3>
+          <div id="creator-drafts"></div>
+        </div>
+        <div style="flex:1;min-width:240px;background:rgba(10,14,20,0.5);padding:12px;border-radius:8px;border:1px solid rgba(255,255,255,0.03)">
+          <h3>Balance</h3>
+          <div id="creator-balance"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+  <script src="/js/storageService.js" defer></script>
+  <script src="/js/uploadService.js" defer></script>
+  <script src="/creator/creator-dashboard.js" defer></script>
+</body>
+</html>

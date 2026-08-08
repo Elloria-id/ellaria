@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Admin Upload - Ellaria</title>
+  <link rel="stylesheet" href="/css/variables.css">
+  <link rel="stylesheet" href="/css/global.css">
+  <link rel="stylesheet" href="upload.css">
+</head>
+<body>
+  <main class="main-content">
+    <div class="section-container">
+      <h1>Creator Upload</h1>
+      <form id="upload-form">
+        <label>Title<input type="text" id="title" required></label>
+        <label>Tags (comma separated)<input type="text" id="tags"></label>
+        <label>File<input type="file" id="file-input" required></label>
+        <div style="margin-top:12px"><button class="btn" type="submit">Upload (simulate)</button></div>
+      </form>
+
+      <div style="margin-top:16px">
+        <h3>Uploads</h3>
+        <div id="uploads-list"></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- small progress modal -->
+  <div id="progress-modal" class="modal" style="display:none"><div class="modal-content"><h3>Uploading...</h3><div style="height:12px;background:rgba(255,255,255,0.06);border-radius:8px;overflow:hidden"><div id="progress-bar" style="height:100%;width:0%;background:var(--accent)"></div></div><div style="margin-top:8px;text-align:right"><button class="btn" id="progress-close">Close</button></div></div></div>
+
+  <script src="/js/storageService.js" defer></script>
+  <script src="/js/uploadService.js" defer></script>
+  <script src="upload.js" defer></script>
+</body>
+</html>

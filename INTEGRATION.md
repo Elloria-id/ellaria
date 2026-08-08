@@ -1,27 +1,41 @@
 
 
 ---
-Additional Integration Notes: Payments & Wallet (Sprint 4)
+Additional Integration Notes: Creator / Admin Uploads (Sprint 6)
 
-This branch adds client-side simulated wallet/shop/vip flows. Important production guidance below:
+This sprint adds a frontend-only upload flow (validation + simulated upload progress) and admin/creator dashboards that manage upload metadata stored in localStorage. For production, follow these important integration steps:
 
-1) Do NOT handle payment secrets in frontend
-   - All payment session creation (QRIS, card, third-party) must be created server-side.
-   - Server should return a short-lived payment URL / QR payload to the client.
+1) Signed uploads
+   - Generate signed/upload URLs server-side (S3 presigned URLs, GCS signed URLs, or cloud provider equivalent).
+   - Client uploads directly to the storage provider using the signed URL; server should not proxy file data unnecessarily.
 
-2) Recommended flow
-   - Client posts purchase intent to server (item id, user id) -> server verifies user & item, creates payment session (gateway API), returns session id / payment URL / QR code data to client -> client redirects or shows QR/modal -> webhook receives confirmation -> server updates order & credits user account -> client polls order status or receives push notification.
+2) Server-side validation & processing
+   - After upload, send metadata to server (user id, file path, checksum, type, size).
+   - Server should enqueue background jobs for:
+     - Virus/malware scanning
+     - Thumbnail generation
+     - Transcoding (if needed)
+     - OCR / metadata extraction
+   - Use idempotent job patterns and handle retries safely.
 
-3) Data to store server-side (not client)
-   - Orders table: id, user_id, item_sku, amount, currency, payment_provider, status, created_at, paid_at, webhook_payload
-   - Wallet ledger: transaction_id, user_id, change_amount (+/-), balance_after, reason, metadata
+3) Moderation & content policy
+   - Integrate automated moderation (hash matching, NSFW classifiers) and human moderation queue.
+   - Store moderation decisions and expose status to creators via API.
 
-4) Webhooks & security
-   - Verify webhooks from payment providers using signature/secret.
-   - Use idempotency keys for order creation.
+4) Storage & CDN
+   - Serve media through a CDN with signed URLs for protected content.
+   - Use lifecycle rules for temporary files and archival strategies for older media.
 
-5) Migration from localStorage to server
-   - Replace StorageService.get/set for wallet & vip with server API calls returning user-scoped data.
-   - Use optimistic UI updates with caution; always reconcile with server state after webhook/confirmation.
+5) Quotas & billing
+   - Enforce per-user quotas server-side to prevent abuse.
+   - Track storage usage and bill or block uploads when limits reached.
+
+6) Security
+   - Validate file types on server (do not trust client-side mime-type alone).
+   - Use content-disposition and secure filenames; avoid storing user-supplied filenames in public paths without sanitization.
+
+7) Webhooks & publish flow
+   - When background processing completes, server should update the upload record and notify clients (webhooks / push / polling).
+   - Use secure webhook verification and idempotency keys on order/process creation.
 
 ---
