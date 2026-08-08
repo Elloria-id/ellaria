@@ -1,93 +1,59 @@
-// History Page JavaScript
+/* pages/history/history.js
+ * Client-side reading history recording and simple statistics/calendar view.
+ * Exposes History.record(seriesId, chapterId, progressSeconds) to be called
+ * by reader when a chapter is opened/closed.
+ */
 
-const HistoryController = {
-    history: [],
+const History = (function(){
+  const KEY = 'history';
 
-    init: function() {
-        this.loadHistory();
-        this.attachEventListeners();
-        this.displayHistory();
-    },
+  function get(){ return StorageService.get(KEY, []); }
+  function save(list){ StorageService.set(KEY, list); }
 
-    attachEventListeners: function() {
-        document.getElementById('history-search').addEventListener('input', (e) => this.filterHistory(e.target.value));
-        document.getElementById('clear-history').addEventListener('click', () => this.clearAllHistory());
-    },
+  function record(seriesId, chapterId, progressSeconds = 0){
+    const list = get();
+    list.unshift({ id: 'h_' + Math.random().toString(36).slice(2,9), seriesId, chapterId, timestamp: Date.now(), progressSeconds });
+    // keep max 500 entries
+    if(list.length > 500) list.length = 500;
+    save(list);
+    render();
+  }
 
-    loadHistory: function() {
-        this.history = Utils.getStorage('readingHistory') || [
-            { id: 1, title: 'Solo Leveling', cover: '/assets/images/covers/solo-leveling.jpg', lastChapter: 150, lastRead: '2 hours ago' },
-            { id: 2, title: 'Tower of God', cover: '/assets/images/covers/tower-of-god.jpg', lastChapter: 200, lastRead: '1 day ago' }
-        ];
-    },
-
-    displayHistory: function() {
-        const list = document.getElementById('history-list');
-        const empty = document.getElementById('empty-state');
-
-        if (this.history.length === 0) {
-            list.style.display = 'none';
-            empty.style.display = 'block';
-            return;
-        }
-
-        list.style.display = 'flex';
-        empty.style.display = 'none';
-        list.innerHTML = this.history.map(h => `
-            <div class="history-item">
-                <img src="${h.cover}" alt="${h.title}" class="history-cover">
-                <div class="history-info">
-                    <h4>${h.title}</h4>
-                    <div class="history-meta">
-                        <span>Chapter ${h.lastChapter}</span>
-                        <span>Dibaca ${h.lastRead}</span>
-                    </div>
-                </div>
-                <div class="history-actions">
-                    <button class="history-action-btn" onclick="window.location.href='/pages/reader/reader.html?id=${h.id}'">Lanjutkan</button>
-                    <button class="history-action-btn" onclick="HistoryController.removeHistory(${h.id})">Hapus</button>
-                </div>
-            </div>
-        `).join('');
-    },
-
-    filterHistory: function(query) {
-        const filtered = this.history.filter(h => h.title.toLowerCase().includes(query.toLowerCase()));
-        const list = document.getElementById('history-list');
-        list.innerHTML = filtered.map(h => `
-            <div class="history-item">
-                <img src="${h.cover}" alt="${h.title}" class="history-cover">
-                <div class="history-info">
-                    <h4>${h.title}</h4>
-                    <div class="history-meta">
-                        <span>Chapter ${h.lastChapter}</span>
-                        <span>Dibaca ${h.lastRead}</span>
-                    </div>
-                </div>
-                <div class="history-actions">
-                    <button class="history-action-btn" onclick="window.location.href='/pages/reader/reader.html?id=${h.id}'">Lanjutkan</button>
-                </div>
-            </div>
-        `).join('');
-    },
-
-    removeHistory: function(id) {
-        this.history = this.history.filter(h => h.id !== id);
-        Utils.setStorage('readingHistory', this.history);
-        this.displayHistory();
-    },
-
-    clearAllHistory: function() {
-        if (confirm('Hapus semua riwayat bacaan?')) {
-            this.history = [];
-            Utils.setStorage('readingHistory', []);
-            this.displayHistory();
-        }
+  function render(){
+    const container = document.getElementById('history-list');
+    if(!container) return;
+    const list = get();
+    if(list.length === 0){
+      const empty = document.getElementById('empty-state'); if(empty) empty.style.display = 'block';
+      container.innerHTML = '';
+      return;
     }
-};
+    const rows = list.slice(0,200).map(it => {
+      const d = new Date(it.timestamp);
+      return `<div class="history-card"><div class="history-meta">${d.toLocaleString()}</div><div>Series: ${it.seriesId} • Chapter: ${it.chapterId} • Progress: ${Math.round(it.progressSeconds)}s</div></div>`;
+    }).join('');
+    container.innerHTML = rows;
+  }
 
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => HistoryController.init());
-} else {
-    HistoryController.init();
-}
+  function clearAll(){ if(confirm('Hapus semua riwayat?')){ save([]); render(); } }
+
+  function exportJSON(){ const json = StorageService.exportJSON(KEY); const blob = new Blob([json],{type:'application/json'}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href=url; a.download='ellaria-history.json'; a.click(); URL.revokeObjectURL(url); }
+
+  function attach(){
+    // add simple controls
+    const container = document.querySelector('.section-container');
+    if(container && !document.getElementById('history-controls')){
+      const el = document.createElement('div'); el.id = 'history-controls'; el.style.marginBottom = 'var(--sp-md)';
+      el.innerHTML = `<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="clear-history-btn">Hapus Semua</button><button class="btn" id="export-history">Export JSON</button></div>`;
+      container.insertBefore(el, container.firstChild);
+      document.getElementById('clear-history-btn').addEventListener('click', clearAll);
+      document.getElementById('export-history').addEventListener('click', exportJSON);
+    }
+  }
+
+  return { init(){ attach(); render(); }, record, clearAll, exportJSON };
+})();
+
+// expose globally
+window.History = History;
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', ()=>History.init()); else History.init();
