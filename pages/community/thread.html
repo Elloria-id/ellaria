@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Thread - Community</title>
+  <link rel="stylesheet" href="/css/variables.css">
+  <link rel="stylesheet" href="/css/global.css">
+  <link rel="stylesheet" href="../community/community.css">
+</head>
+<body>
+  <main class="main-content">
+    <div class="section-container">
+      <a href="/pages/community/community.html" class="btn btn-secondary">Back</a>
+      <div id="thread-view" style="margin-top:12px"></div>
+      <div style="margin-top:12px">
+        <textarea id="reply-content" rows="4" style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.03)"></textarea>
+        <div style="display:flex;gap:8px;margin-top:8px"><button class="btn" id="reply-btn">Reply</button><button class="btn btn-secondary" id="sticky-btn">Toggle Sticky</button></div>
+      </div>
+    </div>
+  </main>
+
+  <script src="/js/storageService.js" defer></script>
+  <script src="/js/communityService.js" defer></script>
+  <script src="/js/notifService.js" defer></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', ()=>{
+      const params = new URLSearchParams(window.location.search); const id = params.get('id'); if(!id) return; const threads = CommunityService.listThreads(); const th = threads.find(t=>t.id===id); if(!th) return document.getElementById('thread-view').innerHTML='<p>Not found</p>';
+      CommunityService.incrementView(id);
+      render();
+
+      function render(){ const t = CommunityService.listThreads().find(x=>x.id===id); const posts = CommunityService.getThreadPosts(id); document.getElementById('thread-view').innerHTML = `<h2>${t.title}</h2><div class="muted">by ${t.author} • ${t.views} views</div><div style="margin-top:12px">${posts.map(p=>`<div style="padding:8px;border-radius:8px;margin-bottom:8px;background:rgba(255,255,255,0.02)"><strong>${p.author}</strong><div class="muted">${new Date(p.createdAt).toLocaleString()}</div><div style="margin-top:8px">${p.content}</div></div>`).join('')}</div>`; }
+
+      document.getElementById('reply-btn').addEventListener('click', ()=>{ const val = document.getElementById('reply-content').value.trim(); if(!val) return; const user = AuthService.getUser(); const author = user?user.displayName||user.email:'Guest'; CommunityService.createPost({ threadId:id, author, content:val }); NotifService.push({ title:'New reply', body: `Reply in ${th.title}`, data:{ threadId:id } }); render(); document.getElementById('reply-content').value=''; });
+
+      document.getElementById('sticky-btn').addEventListener('click', ()=>{ CommunityService.toggleSticky(id); render(); });
+    });
+  </script>
+</body>
+</html>
