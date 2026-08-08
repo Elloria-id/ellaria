@@ -9,13 +9,31 @@
   <link rel="stylesheet" href="community.css">
 </head>
 <body>
+  <nav class="navbar">
+    <div class="navbar-container">
+      <div class="navbar-logo"><a href="/" class="logo-link">Ellaria</a></div>
+      <div class="navbar-actions">
+        <button class="btn" id="open-notif">🔔 <span id="notif-badge" style="display:none;background:var(--accent);color:#fff;border-radius:999px;padding:2px 6px;margin-left:6px;font-size:12px"></span></button>
+      </div>
+    </div>
+  </nav>
+
   <main class="main-content">
     <div class="section-container">
       <h1>Community</h1>
-      <p class="muted">Forum threads and posts (UI stub).</p>
-      <div class="community-list" id="community-list"></div>
+      <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px">
+        <input id="new-thread-title" placeholder="Buat topik baru..." style="flex:1;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.03)">
+        <button class="btn" id="create-thread">Buat</button>
+      </div>
+
+      <div id="threads-list" class="community-list"></div>
+
     </div>
   </main>
+
+  <script src="/js/storageService.js" defer></script>
+  <script src="/js/communityService.js" defer></script>
+  <script src="/js/notifService.js" defer></script>
   <script src="community.js" defer></script>
 </body>
 </html>

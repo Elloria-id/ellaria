@@ -1,3 +1,4 @@
-/* Community styles */
-.community-list{display:grid;gap:var(--sp-md);margin-top:var(--sp-md)}
-.thread{background:rgba(10,14,20,0.5);padding:var(--sp-md);border-radius:12px}
+/* pages/community/community.css */
+.community-list{display:grid;gap:12px}
+.thread-card{background:rgba(10,14,20,0.5);padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,0.03);display:flex;justify-content:space-between;align-items:center}
+.thread-meta{color:var(--text-secondary);font-size:13px}

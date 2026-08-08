@@ -9,27 +9,28 @@
   <link rel="stylesheet" href="shop.css">
 </head>
 <body>
-  <div class="background-aurora"><div class="aurora-light"></div><div class="stars"></div></div>
-  <nav class="navbar" id="navbar"> <!-- existing navbar markup expected -->
-    <!-- keep same structure as other pages -->
-    <div class="navbar-container">
-      <div class="navbar-logo"><a href="/" class="logo-link"><span class="logo-text">Ellaria</span><span class="logo-jp">エル</span></a></div>
-    </div>
-  </nav>
-
   <main class="main-content">
     <div class="section-container">
-      <h1>Toko (Shop)</h1>
-      <p class="muted">Jual item in-app: coin, VIP, merchandise (UI statis).</p>
-
-      <section class="shop-grid" id="shop-grid"></section>
-
-      <div class="shop-footer">
-        <p class="muted">Semua pembelian harus melalui server side. See INTEGRATION.md</p>
-      </div>
+      <h1>Toko</h1>
+      <p class="muted">Beli koin, paket VIP, atau barang fisik. Semua transaksi disimulasikan di client (TODO: implement server-side payments).</p>
+      <div class="shop-grid" id="shop-grid"></div>
     </div>
   </main>
 
+  <!-- Checkout modal -->
+  <div id="checkout-modal" class="modal" style="display:none">
+    <div class="modal-content">
+      <h3>Checkout</h3>
+      <div id="checkout-body"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+        <button class="btn" id="checkout-confirm">Simulate success</button>
+        <button class="btn btn-secondary" id="checkout-cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/storageService.js" defer></script>
+  <script src="/js/authService.js" defer></script>
   <script src="shop.js" defer></script>
 </body>
 </html>

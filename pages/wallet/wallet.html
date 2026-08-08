@@ -9,20 +9,47 @@
   <link rel="stylesheet" href="wallet.css">
 </head>
 <body>
-  <div class="background-aurora"><div class="aurora-light"></div><div class="stars"></div></div>
   <main class="main-content">
     <div class="section-container">
       <h1>Wallet</h1>
       <div class="wallet-panel">
-        <div class="wallet-balance">Saldo: <strong id="wallet-balance">Rp 0</strong></div>
-        <div class="wallet-actions">
-          <button class="btn" id="topup-btn">Top Up</button>
-          <button class="btn btn-secondary" id="withdraw-btn">Tarik</button>
+        <div class="wallet-header">
+          <div>
+            <div class="muted">Saldo Anda</div>
+            <div class="wallet-balance" id="wallet-balance">Rp 0</div>
+          </div>
+          <div class="wallet-actions">
+            <button class="btn" id="topup-btn">Top Up</button>
+            <button class="btn btn-secondary" id="withdraw-btn">Tarik</button>
+          </div>
         </div>
-        <div class="wallet-transactions" id="wallet-transactions"></div>
+
+        <div class="wallet-transactions" id="wallet-transactions">
+          <h3>Riwayat Transaksi</h3>
+          <div id="transactions-list"></div>
+        </div>
+
+        <div style="margin-top:16px">
+          <a class="btn" href="/pages/shop/shop.html">Kunjungi Toko</a>
+        </div>
       </div>
     </div>
   </main>
+
+  <!-- Topup modal (hidden) -->
+  <div id="modal" class="modal" style="display:none">
+    <div class="modal-content">
+      <h3 id="modal-title">Top Up</h3>
+      <div id="modal-body"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+        <button class="btn" id="modal-confirm">Simulate success</button>
+        <button class="btn btn-secondary" id="modal-cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/storageService.js" defer></script>
+  <script src="/js/authService.js" defer></script>
   <script src="wallet.js" defer></script>
 </body>
 </html>
