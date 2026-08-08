@@ -1,92 +1,43 @@
-// Profile Page JavaScript
+/* pages/profile/profile.js */
 
-const ProfileController = {
-    userProfile: {
-        name: 'User Name',
-        email: 'user@example.com',
-        bio: 'Manga enthusiast',
-        avatar: '/assets/images/avatar/default.jpg',
-        joined: '1 Januari 2024',
-        stats: {
-            reading: 5,
-            completed: 12,
-            bookmarks: 45
-        }
-    },
-
-    init: function() {
-        this.loadProfile();
-        this.displayProfile();
-        this.attachEventListeners();
-    },
-
-    loadProfile: function() {
-        const saved = Utils.getStorage('userProfile');
-        if (saved) {
-            this.userProfile = { ...this.userProfile, ...saved };
-        }
-    },
-
-    displayProfile: function() {
-        document.getElementById('profile-name').textContent = this.userProfile.name;
-        document.getElementById('profile-bio').textContent = this.userProfile.bio;
-        document.getElementById('profile-email').textContent = this.userProfile.email;
-        document.getElementById('profile-image').src = this.userProfile.avatar;
-        document.getElementById('profile-joined').textContent = this.userProfile.joined;
-        document.getElementById('stat-reading').textContent = this.userProfile.stats.reading;
-        document.getElementById('stat-completed').textContent = this.userProfile.stats.completed;
-        document.getElementById('stat-bookmarks').textContent = this.userProfile.stats.bookmarks;
-    },
-
-    attachEventListeners: function() {
-        // Tab switching
-        document.querySelectorAll('.profile-tabs .tab').forEach(tab => {
-            tab.addEventListener('click', (e) => {
-                document.querySelectorAll('.profile-tabs .tab').forEach(t => t.classList.remove('active'));
-                document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
-                e.target.classList.add('active');
-                const tabName = e.target.dataset.tab;
-                document.getElementById(tabName + '-tab').classList.add('active');
-            });
-        });
-
-        // Edit profile
-        document.getElementById('edit-profile-btn').addEventListener('click', () => this.openEditModal());
-        document.getElementById('close-modal').addEventListener('click', () => this.closeEditModal());
-        document.getElementById('edit-form').addEventListener('submit', (e) => this.saveProfile(e));
-        document.getElementById('logout-btn').addEventListener('click', () => this.logout());
-    },
-
-    openEditModal: function() {
-        document.getElementById('edit-name').value = this.userProfile.name;
-        document.getElementById('edit-bio').value = this.userProfile.bio;
-        document.getElementById('edit-modal').style.display = 'flex';
-    },
-
-    closeEditModal: function() {
-        document.getElementById('edit-modal').style.display = 'none';
-    },
-
-    saveProfile: function(e) {
-        e.preventDefault();
-        this.userProfile.name = document.getElementById('edit-name').value;
-        this.userProfile.bio = document.getElementById('edit-bio').value;
-        Utils.setStorage('userProfile', this.userProfile);
-        this.displayProfile();
-        this.closeEditModal();
-        Utils.showNotification('Profil berhasil diperbarui');
-    },
-
-    logout: function() {
-        if (confirm('Yakin ingin keluar?')) {
-            Utils.removeStorage('userProfile');
-            window.location.href = '/pages/login/login.html';
-        }
+const ProfilePage = (function(){
+  function render(){
+    const user = AuthService.getUser();
+    const card = document.getElementById('profile-card');
+    if(!user){
+      card.innerHTML = `<div class="empty-state"><p>Anda belum masuk. <a href="/pages/login/login.html">Masuk</a> atau <a href="/pages/register/register.html">Daftar</a></p></div>`;
+      document.getElementById('profile-actions').innerHTML = '';
+      return;
     }
-};
+    card.innerHTML = `
+      <img class="profile-avatar" src="${user.avatar || '/assets/images/avatar/default.jpg'}" alt="avatar">
+      <div class="profile-body">
+        <h2>${user.displayName || user.email}</h2>
+        <p class="muted">Member sejak: ${new Date(user.createdAt||Date.now()).toLocaleDateString()}</p>
+        <p class="muted">Email: ${user.email}</p>
+      </div>
+    `;
 
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => ProfileController.init());
-} else {
-    ProfileController.init();
-}
+    const actions = document.getElementById('profile-actions');
+    actions.innerHTML = `<button class="btn" id="edit-profile">Edit Profile</button><button class="btn btn-secondary" id="signout">Sign out</button>`;
+    document.getElementById('signout').addEventListener('click', ()=>{ AuthService.signOut(); render(); alert('Signed out (stub)'); location.reload(); });
+    document.getElementById('edit-profile').addEventListener('click', ()=>{ editProfile(user); });
+
+    // load collections from StorageService (bookmarks as sample)
+    const collectionsEl = document.getElementById('my-collections');
+    const bms = StorageService.get('bookmarks', []);
+    collectionsEl.innerHTML = bms.length ? bms.map(b=>`<div class="card" style="display:inline-block;margin:8px;padding:8px;border-radius:8px">${b.title}</div>`).join('') : '<p class="muted">Belum ada koleksi</p>';
+
+    // followers/following stub
+    const followEl = document.getElementById('follow-stats'); followEl.innerHTML = '<div>Followers: <strong>0</strong> • Following: <strong>0</strong></div>';
+  }
+
+  function editProfile(user){
+    const name = prompt('Nama tampilan:', user.displayName || '');
+    if(name){ user.displayName = name; AuthService.register({ email: user.email, password: '***', displayName: user.displayName }); alert('Profile updated (stub)'); render(); }
+  }
+
+  return { init(){ render(); } };
+})();
+
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', ()=>ProfilePage.init()); else ProfilePage.init();
