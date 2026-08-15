@@ -1,12 +1,16 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/db/prisma'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth'
+import { PaymentService } from '@/lib/payments/payment.service'
 import { z } from 'zod'
 
 const paymentSchema = z.object({
   packageId: z.string(),
-  proofImage: z.string().optional(),
+  metadata: z.object({
+    username: z.string().optional(),
+    email: z.string().email().optional(),
+    phone: z.string().optional(),
+  }).optional(),
 })
 
 export async function POST(req: Request) {
@@ -22,30 +26,19 @@ export async function POST(req: Request) {
     const body = await req.json()
     const validated = paymentSchema.parse(body)
 
-    const packageData = await prisma.coinPackage.findUnique({
-      where: { id: validated.packageId },
-    })
-
-    if (!packageData) {
-      return NextResponse.json(
-        { success: false, message: 'Paket tidak ditemukan' },
-        { status: 404 }
-      )
-    }
-
-    const payment = await prisma.payment.create({
-      data: {
-        userId: session.user.id,
-        packageId: validated.packageId,
-        amount: packageData.price,
-        status: 'PENDING',
-        proofImage: validated.proofImage,
-      },
-    })
+    const result = await PaymentService.createPayment(
+      session.user.id,
+      validated.packageId,
+      {
+        username: session.user.username,
+        email: session.user.email,
+        ...validated.metadata,
+      }
+    )
 
     return NextResponse.json({
       success: true,
-      data: payment,
+      data: result,
     })
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -55,7 +48,7 @@ export async function POST(req: Request) {
       )
     }
     return NextResponse.json(
-      { success: false, message: 'Internal server error' },
+      { success: false, message: (error as Error).message },
       { status: 500 }
     )
   }
