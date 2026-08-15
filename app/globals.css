@@ -1,0 +1,113 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: #0a0a1a;
+    --foreground: #ffffff;
+    --primary: #42A5F5;
+    --primary-dark: #1a73e8;
+    --glass-bg: rgba(255, 255, 255, 0.05);
+    --glass-border: rgba(255, 255, 255, 0.1);
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-dark-500 text-white antialiased;
+    background: radial-gradient(ellipse at 50% 0%, #0f3460 0%, #0a0a1a 70%, #050510 100%);
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-dark-400;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-primary/50 rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-primary/70;
+  }
+}
+
+@layer components {
+  .glass {
+    @apply bg-glass-bg backdrop-blur-md border border-glass-border;
+  }
+
+  .aurora-glow {
+    @apply bg-gradient-to-r from-blue-500/20 via-transparent to-blue-500/20;
+    animation: aurora 8s ease-in-out infinite;
+  }
+
+  .glass-card {
+    @apply bg-glass-bg backdrop-blur-sm border border-glass-border rounded-xl shadow-xl;
+  }
+
+  .btn-primary {
+    @apply bg-primary hover:bg-primary-dark text-white font-medium px-6 py-2.5 rounded-lg transition-all duration-200;
+  }
+
+  .btn-secondary {
+    @apply glass hover:bg-white/10 text-white font-medium px-6 py-2.5 rounded-lg transition-all duration-200;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-gradient-to-r from-primary to-blue-300 bg-clip-text text-transparent;
+  }
+
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  .animate-star {
+    animation: star 3s ease-in-out infinite;
+  }
+}
+
+/* Stars background */
+.stars {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.star {
+  position: absolute;
+  background: white;
+  border-radius: 50%;
+  animation: star 3s ease-in-out infinite;
+}
+
+/* Novel Reader Content */
+.novel-content {
+  max-width: 100%;
+  word-wrap: break-word;
+}
+
+.novel-content p {
+  margin-bottom: 1.5rem;
+  text-align: justify;
+}
+
+.novel-content h1,
+.novel-content h2,
+.novel-content h3 {
+  margin-bottom: 1rem;
+  font-weight: bold;
+}
