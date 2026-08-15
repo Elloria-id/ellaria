@@ -171,7 +171,7 @@ export async function POST(req: Request) {
   }
 }
 
-// Helper method untuk streak calculation
+// Helper function untuk streak calculation (harus didefinisikan di atas)
 async function getStreak(userId: string): Promise<number> {
   const claims = await prisma.userDailyReward.findMany({
     where: { userId },
@@ -201,3 +201,5 @@ async function getStreak(userId: string): Promise<number> {
 
   return streak
 }
+
+// ... sisanya sama
