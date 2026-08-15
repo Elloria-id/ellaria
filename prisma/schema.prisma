@@ -1,0 +1,19 @@
+model Payment {
+  id             String         @id @default(cuid())
+  userId         String
+  packageId      String
+  amount         Float
+  status         PaymentStatus  @default(PENDING)
+  provider       String?        // manual, midtrans, xendit, tripay, duitku
+  providerReference String?     // ID dari payment gateway
+  paymentUrl     String?        // URL pembayaran (untuk redirect)
+  qrImage        String?        // QRIS image (untuk manual)
+  proofImage     String?        // Bukti upload (manual)
+  adminNote      String?
+  reviewedAt     DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  user    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  package CoinPackage  @relation(fields: [packageId], references: [id])
+}
