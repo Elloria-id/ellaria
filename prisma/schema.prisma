@@ -17,3 +17,14 @@ model Payment {
   user    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   package CoinPackage  @relation(fields: [packageId], references: [id])
 }
+model ChapterWait {
+  id          String   @id @default(cuid())
+  userId      String
+  chapterId   String
+  expiresAt   DateTime
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chapter Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, chapterId])
+}
