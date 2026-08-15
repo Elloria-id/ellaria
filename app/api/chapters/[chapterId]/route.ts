@@ -57,31 +57,31 @@ export async function GET(
       hasAccess = !!entitlement || !!vip
 
       if (!hasAccess && chapter.waitEnabled) {
-        const now = new Date()
-        const existingWait = await prisma.chapterWait.findFirst({
-          where: {
-            userId: session.user.id,
-            chapterId: chapter.id,
-            expiresAt: { gt: now },
-          },
-        })
+  const now = new Date()
+  const existingWait = await prisma.chapterWait.findFirst({
+    where: {
+      userId: session.user.id,
+      chapterId: chapter.id,
+      expiresAt: { gt: now },
+    },
+  })
 
-        if (existingWait) {
-          waitUntil = existingWait.expiresAt
-          hasAccess = false
-        } else {
-          const waitUntilDate = new Date(now.getTime() + chapter.waitSeconds * 1000)
-          await prisma.chapterWait.create({
-            data: {
-              userId: session.user.id,
-              chapterId: chapter.id,
-              expiresAt: waitUntilDate,
-            },
-          })
-          waitUntil = waitUntilDate
-          hasAccess = false
-        }
-      }
+  if (existingWait) {
+    waitUntil = existingWait.expiresAt
+    hasAccess = false
+  } else {
+    const waitUntilDate = new Date(now.getTime() + chapter.waitSeconds * 1000)
+    await prisma.chapterWait.create({
+      data: {
+        userId: session.user.id,
+        chapterId: chapter.id,
+        expiresAt: waitUntilDate,
+      },
+    })
+    waitUntil = waitUntilDate
+    hasAccess = false
+  }
+}
 
       if (!hasAccess && !waitUntil) {
         return NextResponse.json(
