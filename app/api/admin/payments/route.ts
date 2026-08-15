@@ -2,14 +2,8 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth'
-import { WalletService } from '@/lib/coins/wallet.service'
+import { PaymentService } from '@/lib/payments/payment.service'
 import { z } from 'zod'
-
-const reviewSchema = z.object({
-  paymentId: z.string(),
-  status: z.enum(['APPROVED', 'REJECTED']),
-  note: z.string().optional(),
-})
 
 export async function GET(req: Request) {
   try {
@@ -23,12 +17,16 @@ export async function GET(req: Request) {
 
     const url = new URL(req.url)
     const status = url.searchParams.get('status') || 'PENDING'
+    const provider = url.searchParams.get('provider')
     const page = Number(url.searchParams.get('page')) || 1
     const limit = Number(url.searchParams.get('limit')) || 20
 
+    const where: any = { status }
+    if (provider) where.provider = provider
+
     const [payments, total] = await Promise.all([
       prisma.payment.findMany({
-        where: { status: status as any },
+        where,
         include: {
           user: {
             select: {
@@ -43,7 +41,7 @@ export async function GET(req: Request) {
         skip: (page - 1) * limit,
         take: limit,
       }),
-      prisma.payment.count({ where: { status: status as any } }),
+      prisma.payment.count({ where }),
     ])
 
     return NextResponse.json({
@@ -66,6 +64,12 @@ export async function GET(req: Request) {
   }
 }
 
+const reviewSchema = z.object({
+  paymentId: z.string(),
+  action: z.enum(['APPROVE', 'REJECT']),
+  note: z.string().optional(),
+})
+
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions)
@@ -79,64 +83,24 @@ export async function POST(req: Request) {
     const body = await req.json()
     const validated = reviewSchema.parse(body)
 
-    const result = await prisma.$transaction(async (tx) => {
-      const payment = await tx.payment.findUnique({
-        where: { id: validated.paymentId },
-        include: { package: true, user: true },
-      })
-
-      if (!payment) {
-        throw new Error('Payment tidak ditemukan')
-      }
-
-      if (payment.status !== 'PENDING') {
-        throw new Error(`Payment sudah ${payment.status.toLowerCase()}`)
-      }
-
-      const updatedPayment = await tx.payment.update({
-        where: { id: validated.paymentId },
-        data: {
-          status: validated.status,
-          adminNote: validated.note,
-          reviewedAt: new Date(),
-        },
-      })
-
-      if (validated.status === 'APPROVED') {
-        await WalletService.addCoinsInTransaction(
-          tx,
-          payment.userId,
-          payment.package.coins,
-          'TOPUP',
-          payment.id,
-          `Topup ${payment.package.name}`
-        )
-
-        await tx.notification.create({
-          data: {
-            userId: payment.userId,
-            type: 'PAYMENT_APPROVED',
-            title: 'Payment Disetujui',
-            message: `${payment.package.coins} koin telah ditambahkan ke akun Anda`,
-          },
-        })
-      } else {
-        await tx.notification.create({
-          data: {
-            userId: payment.userId,
-            type: 'PAYMENT_REJECTED',
-            title: 'Payment Ditolak',
-            message: validated.note || 'Payment Anda ditolak. Silakan hubungi admin.',
-          },
-        })
-      }
-
-      return updatedPayment
-    })
+    let result
+    if (validated.action === 'APPROVE') {
+      result = await PaymentService.manualApprove(
+        validated.paymentId,
+        session.user.id,
+        validated.note
+      )
+    } else {
+      result = await PaymentService.manualReject(
+        validated.paymentId,
+        session.user.id,
+        validated.note
+      )
+    }
 
     return NextResponse.json({
       success: true,
-      message: `Payment ${validated.status.toLowerCase()}`,
+      data: result,
     })
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -145,14 +109,8 @@ export async function POST(req: Request) {
         { status: 400 }
       )
     }
-    if (error instanceof Error) {
-      return NextResponse.json(
-        { success: false, message: error.message },
-        { status: 400 }
-      )
-    }
     return NextResponse.json(
-      { success: false, message: 'Internal server error' },
+      { success: false, message: (error as Error).message },
       { status: 500 }
     )
   }
