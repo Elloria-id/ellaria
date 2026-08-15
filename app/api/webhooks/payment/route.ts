@@ -1,77 +1,60 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/db/prisma'
-import { WalletService } from '@/lib/coins/wallet.service'
-import crypto from 'crypto'
+import { PaymentService } from '@/lib/payments/payment.service'
+import { z } from 'zod'
+
+// Schema per provider (sesuaikan dengan kebutuhan)
+const webhookSchema = z.object({
+  provider: z.enum(['midtrans', 'xendit', 'tripay', 'duitku']),
+  signature: z.string(),
+  body: z.any(),
+})
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json()
-    const { paymentId, status, signature, provider } = body
+    const rawBody = await req.json()
+    
+    // Detect provider from request
+    let provider = ''
+    let signature = ''
+    let body = rawBody
 
-    // Verify signature (untuk Tripay/Midtrans)
-    if (provider === 'tripay') {
-      const expectedSignature = crypto
-        .createHmac('sha256', process.env.TRIPAY_SECRET || '')
-        .update(JSON.stringify(body))
-        .digest('hex')
-
-      if (signature !== expectedSignature) {
-        return NextResponse.json(
-          { success: false, message: 'Invalid signature' },
-          { status: 401 }
-        )
-      }
+    // Midtrans
+    if (rawBody.order_id && rawBody.transaction_status) {
+      provider = 'midtrans'
+      signature = req.headers.get('x-midtrans-signature') || ''
     }
-
-    const result = await prisma.$transaction(async (tx) => {
-      const payment = await tx.payment.findUnique({
-        where: { id: paymentId },
-        include: { package: true },
-      })
-
-      if (!payment || payment.status !== 'PENDING') {
-        return null
-      }
-
-      if (status === 'PAID') {
-        await tx.payment.update({
-          where: { id: paymentId },
-          data: { status: 'PAID' },
-        })
-
-        await WalletService.addCoinsInTransaction(
-          tx,
-          payment.userId,
-          payment.package.coins,
-          'TOPUP',
-          payment.id,
-          `Auto topup ${payment.package.name}`
-        )
-
-        await tx.notification.create({
-          data: {
-            userId: payment.userId,
-            type: 'PAYMENT_APPROVED',
-            title: 'Payment Otomatis Berhasil',
-            message: `${payment.package.coins} koin telah ditambahkan ke akun Anda`,
-          },
-        })
-      }
-
-      return payment
-    })
-
-    if (!result) {
+    // Xendit
+    else if (rawBody.id && rawBody.status) {
+      provider = 'xendit'
+      signature = req.headers.get('x-endit-signature') || ''
+    }
+    // Tripay
+    else if (rawBody.reference && rawBody.status) {
+      provider = 'tripay'
+      signature = req.headers.get('x-tripay-signature') || ''
+    }
+    // Duitku
+    else if (rawBody.merchantOrderId && rawBody.statusCode) {
+      provider = 'duitku'
+      signature = req.headers.get('x-duitku-signature') || ''
+    }
+    else {
       return NextResponse.json(
-        { success: false, message: 'Payment not found or already processed' },
-        { status: 404 }
+        { success: false, message: 'Unknown provider' },
+        { status: 400 }
       )
     }
 
-    return NextResponse.json({ success: true })
+    // Process webhook
+    const result = await PaymentService.processWebhook(provider, body, signature)
+
+    return NextResponse.json({
+      success: result.success,
+      message: result.message,
+    })
   } catch (error) {
     return NextResponse.json(
-      { success: false, message: 'Internal server error' },
+      { success: false, message: (error as Error).message },
       { status: 500 }
     )
   }
