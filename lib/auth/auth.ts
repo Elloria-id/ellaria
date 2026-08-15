@@ -76,18 +76,17 @@ export const authOptions: NextAuthOptions = {
       return token
     },
     async session({ session, token }) {
-      if (session.user) {
-        session.user.id = token.id as string
-        session.user.role = token.role as Role
-        session.user.username = token.username as string
-        session.user.avatar = token.avatar as string
-        session.user.coins = token.coins as number
-        session.user.exp = token.exp as number
-        session.user.level = token.level as number
-        session.user.isBanned = token.isBanned as boolean
-      }
-      return session
-    },
-  },
+  if (session.user) {
+    session.user.id = token.id as string
+    session.user.role = token.role as Role
+    session.user.username = token.username as string
+    session.user.avatar = token.avatar as string
+    session.user.coins = token.coins as number
+    session.user.exp = token.exp as number
+    session.user.level = token.level as number
+    session.user.isBanned = token.isBanned as boolean
+  }
+  return session
+}
   secret: process.env.NEXTAUTH_SECRET,
 }
