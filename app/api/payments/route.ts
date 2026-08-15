@@ -1,3 +1,4 @@
+import { prisma } from '@/lib/db/prisma'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth'
