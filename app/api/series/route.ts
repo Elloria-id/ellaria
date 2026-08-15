@@ -9,7 +9,24 @@ const querySchema = z.object({
   genre: z.string().optional(),
   status: z.enum(['ONGOING', 'COMPLETED', 'HIATUS']).optional(),
   search: z.string().optional(),
+  sort: z.enum(['newest', 'popular', 'views']).default('newest'),
 })
+
+// Di bagian orderBy:
+let orderBy: any = {}
+switch (validated.sort) {
+  case 'newest':
+    orderBy = { createdAt: 'desc' }
+    break
+  case 'popular':
+    orderBy = { views: 'desc' }
+    break
+  case 'views':
+    orderBy = { views: 'desc' }
+    break
+  default:
+    orderBy = { createdAt: 'desc' }
+}
 
 export async function GET(req: Request) {
   try {
