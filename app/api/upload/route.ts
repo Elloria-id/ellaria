@@ -14,13 +14,16 @@ const uploadSchema = z.object({
 })
 
 let storageProvider: StorageProvider
-try {
-  if (process.env.STORAGE_PROVIDER === 'r2') {
+const provider = process.env.STORAGE_PROVIDER || 'local'
+
+if (provider === 'r2') {
+  try {
     storageProvider = new R2StorageProvider()
-  } else {
+  } catch {
+    // Fallback ke local jika R2 gagal
     storageProvider = new LocalStorageProvider()
   }
-} catch {
+} else {
   storageProvider = new LocalStorageProvider()
 }
 
