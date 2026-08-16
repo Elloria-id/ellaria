@@ -1,101 +1,91 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { useEffect, useState } from 'react'
 
-interface BannerProps {
-  banners: Array<{
-    id: string
-    title?: string
-    image: string
-    link?: string
-  }>
+type BannerItem = {
+  id: string
+  title: string
+  image: string
+  link?: string | null
 }
 
-export function Banner({ banners }: BannerProps) {
-  const [current, setCurrent] = useState(0)
-  const [isHovering, setIsHovering] = useState(false)
+const defaultBanners: BannerItem[] = [
+  {
+    id: 'default-1',
+    title: 'Ellaria',
+    image: '/banner-placeholder.jpg',
+    link: '/search',
+  },
+]
+
+export default function Banner({
+  items = defaultBanners,
+}: {
+  items?: BannerItem[]
+}) {
+  const [active, setActive] = useState(0)
 
   useEffect(() => {
-    if (banners.length === 0 || isHovering) return
+    if (items.length <= 1) return
 
-    const interval = setInterval(() => {
-      setCurrent((prev) => (prev + 1) % banners.length)
+    const timer = setInterval(() => {
+      setActive(current =>
+        current >= items.length - 1
+          ? 0
+          : current + 1
+      )
     }, 3000)
 
-    return () => clearInterval(interval)
-  }, [banners.length, isHovering])
+    return () => clearInterval(timer)
+  }, [items.length])
 
-  const goToSlide = (index: number) => {
-    setCurrent(index)
-  }
-
-  const nextSlide = () => {
-    setCurrent((prev) => (prev + 1) % banners.length)
-  }
-
-  const prevSlide = () => {
-    setCurrent((prev) => (prev - 1 + banners.length) % banners.length)
-  }
-
-  if (banners.length === 0) return null
+  const banner = items[active]
 
   return (
-    <div
-      className="relative w-full h-[200px] md:h-[300px] lg:h-[400px] overflow-hidden rounded-xl"
-      onMouseEnter={() => setIsHovering(true)}
-      onMouseLeave={() => setIsHovering(false)}
-    >
-      {banners.map((banner, index) => (
-        <div
-          key={banner.id}
-          className={`absolute inset-0 transition-all duration-500 ${
-            index === current ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-100'
-          }`}
+    <section className="px-4 py-4">
+      <div className="mx-auto max-w-7xl">
+
+        <a
+          href={banner.link || '#'}
+          className="group block overflow-hidden rounded-2xl border border-white/10 bg-[#0b1016]"
         >
-          <a href={banner.link || '#'}>
+          <div className="relative aspect-video overflow-hidden md:aspect-[3/1]">
+
             <img
               src={banner.image}
-              alt={banner.title || `Banner ${index + 1}`}
-              className="w-full h-full object-cover"
+              alt={banner.title}
+              className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.02]"
             />
-            {banner.title && (
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-6">
-                <h2 className="text-white text-xl md:text-2xl font-bold">
-                  {banner.title}
-                </h2>
-              </div>
-            )}
-          </a>
-        </div>
-      ))}
 
-      {/* Navigation Arrows */}
-      <button
-        onClick={prevSlide}
-        className="absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full glass hover:bg-white/10 transition-colors"
-      >
-        <ChevronLeft className="w-6 h-6 text-white" />
-      </button>
-      <button
-        onClick={nextSlide}
-        className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full glass hover:bg-white/10 transition-colors"
-      >
-        <ChevronRight className="w-6 h-6 text-white" />
-      </button>
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
 
-      {/* Dots */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-2">
-        {banners.map((_, index) => (
-          <button
-            key={index}
-            onClick={() => goToSlide(index)}
-            className={`w-2 h-2 rounded-full transition-colors ${
-              index === current ? 'bg-primary' : 'bg-white/50'
-            }`}
-          />
-        ))}
+            <div className="absolute bottom-0 left-0 p-5">
+              <h1 className="text-xl font-bold md:text-3xl">
+                {banner.title}
+              </h1>
+            </div>
+
+          </div>
+        </a>
+
+        {items.length > 1 && (
+          <div className="mt-3 flex justify-center gap-1.5">
+            {items.map((item, index) => (
+              <button
+                key={item.id}
+                onClick={() => setActive(index)}
+                aria-label={`Banner ${index + 1}`}
+                className={`h-1.5 rounded-full transition-all ${
+                  index === active
+                    ? 'w-7 bg-[#42A5F5]'
+                    : 'w-2 bg-white/20'
+                }`}
+              />
+            ))}
+          </div>
+        )}
+
       </div>
-    </div>
+    </section>
   )
 }
