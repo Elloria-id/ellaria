@@ -29,9 +29,7 @@ export default async function ReaderPage({
     notFound()
   }
 
-  const type = String(
-    chapter.series.type || ''
-  ).toUpperCase()
+  const type = String(chapter.series.type || '').toUpperCase()
 
   /*
     images/content menyesuaikan field schema final.
@@ -42,21 +40,14 @@ export default async function ReaderPage({
 
   const images: string[] = []
 
-  const content =
-    'content' in chapter
-      ? String(
-          (chapter as unknown as {
-            content?: string
-          }).content || ''
-        )
-      : ''
+  const content = 'content' in chapter
+    ? String((chapter as { content?: string }).content || '')
+    : ''
 
-  if (
-    type === 'NOVEL'
-  ) {
+  if (type === 'NOVEL') {
     return (
       <NovelReader
-        title={`${chapter.series.title} — Chapter ${chapter.number}`}
+        title={`${chapter.series.title} — Chapter ${chapter.chapterNumber}`}
         content={content}
       />
     )
@@ -65,13 +56,9 @@ export default async function ReaderPage({
   return (
     <MangaReader
       chapterId={chapter.id}
-      title={`${chapter.series.title} — Chapter ${chapter.number}`}
+      title={`${chapter.series.title} — Chapter ${chapter.chapterNumber}`}
       images={images}
-      coinPrice={Number(
-        (chapter as unknown as {
-          coinPrice?: number
-        }).coinPrice || 0
-      )}
+      coinPrice={Number((chapter as { coinPrice?: number }).coinPrice || 0)}
     />
   )
 }
