@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/db/prisma'
-import { TransactionType } from '@prisma/client'
+import type { Prisma, TransactionType } from '@prisma/client'
 
 export async function getWallet(userId: string) {
   let wallet = await prisma.coinWallet.findUnique({
@@ -137,13 +137,7 @@ export async function transferCoins(
   description?: string,
   referenceId?: string
 ) {
-  return removeCoins(
-    userId,
-    amount,
-    'PURCHASE',
-    description,
-    referenceId
-  )
+  return removeCoins(userId, amount, 'PURCHASE', description, referenceId)
 }
 
 export async function refundCoins(
@@ -152,16 +146,59 @@ export async function refundCoins(
   description?: string,
   referenceId?: string
 ) {
-  return addCoins(
-    userId,
-    amount,
-    'REFUND',
-    description,
-    referenceId
-  )
+  return addCoins(userId, amount, 'REFUND', description, referenceId)
 }
 
-// Default export WalletService wrapper to satisfy imports expecting WalletService
+/**
+ * Add coins inside an existing Prisma transaction client.
+ * This is used by PaymentService when running inside prisma.$transaction to
+ * atomically update wallet and create transaction entries.
+ */
+export async function addCoinsInTransaction(
+  tx: Prisma.TransactionClient,
+  userId: string,
+  amount: number,
+  type: TransactionType = 'BONUS',
+  referenceId?: string,
+  description?: string
+) {
+  if (!Number.isInteger(amount) || amount <= 0) {
+    throw new Error('Jumlah coin tidak valid')
+  }
+
+  const wallet = await tx.coinWallet.upsert({
+    where: { userId },
+    create: { userId, balance: 0 },
+    update: {},
+  })
+
+  const newBalance = wallet.balance + amount
+
+  await tx.coinWallet.update({
+    where: { userId },
+    data: { balance: newBalance },
+  })
+
+  await tx.user.update({
+    where: { id: userId },
+    data: { coins: newBalance },
+  })
+
+  await tx.coinTransaction.create({
+    data: {
+      userId,
+      type,
+      amount,
+      balance: newBalance,
+      description,
+      referenceId,
+    },
+  })
+
+  return newBalance
+}
+
+// Keep default export WalletService wrapper to satisfy imports expecting default
 const WalletService = {
   getWallet,
   getCoinBalance,
@@ -169,7 +206,10 @@ const WalletService = {
   removeCoins,
   transferCoins,
   refundCoins,
+  addCoinsInTransaction,
 }
 
+// Also export named WalletService to satisfy consumers importing { WalletService }
 export { WalletService }
+
 export default WalletService
