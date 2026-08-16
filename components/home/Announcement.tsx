@@ -1,26 +1,20 @@
 'use client'
 
-import { useState } from 'react'
-import { X } from 'lucide-react'
-
-interface AnnouncementProps {
-  content: string
-}
-
-export function Announcement({ content }: AnnouncementProps) {
-  const [visible, setVisible] = useState(true)
-
-  if (!visible) return null
-
+export default function Announcement() {
   return (
-    <div className="glass mb-4 p-3 rounded-lg flex items-center justify-between">
-      <p className="text-sm text-primary">{content}</p>
-      <button
-        onClick={() => setVisible(false)}
-        className="p-1 rounded hover:bg-white/10 transition-colors"
-      >
-        <X className="w-4 h-4" />
-      </button>
+    <div className="overflow-hidden border-b border-white/10 bg-[#080d14]">
+      <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-2">
+        <span className="shrink-0 text-xs font-semibold text-[#42A5F5]">
+          ANNOUNCEMENT
+        </span>
+
+        <div className="overflow-hidden">
+          <p className="whitespace-nowrap text-xs text-gray-400">
+            Selamat datang di Ellaria. Nikmati manga,
+            manhwa, manhua, novel, dan one shot favoritmu.
+          </p>
+        </div>
+      </div>
     </div>
   )
 }
