@@ -1,18 +1,27 @@
 import { prisma } from '@/lib/db/prisma'
 import { WalletService } from '@/lib/coins/wallet.service'
-import type { PaymentProvider, CreatePaymentParams, PaymentResult } from './PaymentProvider'
+import type {
+  PaymentProvider,
+  CreatePaymentParams,
+  PaymentResult,
+} from './PaymentProvider'
 import { ManualQRISProvider } from './ManualQRIS'
 import { MidtransProvider } from './Midtrans'
 import { XenditProvider } from './Xendit'
 import { TripayProvider } from './Tripay'
 import { DuitkuProvider } from './Duitku'
-import type { Prisma, PaymentStatus as PrismaPaymentStatus } from '@prisma/client'
+import type {
+  Prisma,
+  PaymentStatus as PrismaPaymentStatus,
+} from '@prisma/client'
 
 export class PaymentService {
   private static provider?: PaymentProvider
 
   static getProvider(): PaymentProvider {
-    if (this.provider) return this.provider
+    if (this.provider) {
+      return this.provider
+    }
 
     const providerName = process.env.PAYMENT_PROVIDER || 'manual'
 
@@ -20,15 +29,19 @@ export class PaymentService {
       case 'midtrans':
         this.provider = new MidtransProvider()
         break
+
       case 'xendit':
         this.provider = new XenditProvider()
         break
+
       case 'tripay':
         this.provider = new TripayProvider()
         break
+
       case 'duitku':
         this.provider = new DuitkuProvider()
         break
+
       case 'manual':
       default:
         this.provider = new ManualQRISProvider()
@@ -68,22 +81,39 @@ export class PaymentService {
     const params: CreatePaymentParams = {
       merchantRef,
       amount: packageData.price,
-      method: typeof metadata?.method === 'string' ? metadata.method : undefined,
+
+      method:
+        typeof metadata?.method === 'string'
+          ? metadata.method
+          : undefined,
+
       customerName:
-        typeof metadata?.username === 'string' ? metadata.username : undefined,
+        typeof metadata?.username === 'string'
+          ? metadata.username
+          : undefined,
+
       customerEmail:
-        typeof metadata?.email === 'string' ? metadata.email : undefined,
+        typeof metadata?.email === 'string'
+          ? metadata.email
+          : undefined,
+
       customerPhone:
-        typeof metadata?.phone === 'string' ? metadata.phone : undefined,
+        typeof metadata?.phone === 'string'
+          ? metadata.phone
+          : undefined,
+
       itemName: packageData.name,
+
       callbackUrl:
         typeof metadata?.callbackUrl === 'string'
           ? metadata.callbackUrl
           : process.env.PAYMENT_CALLBACK_URL || undefined,
+
       returnUrl:
         typeof metadata?.returnUrl === 'string'
           ? metadata.returnUrl
           : process.env.NEXT_PUBLIC_APP_URL || undefined,
+
       metadata,
       userId,
       packageId,
@@ -136,7 +166,7 @@ export class PaymentService {
 
     const payload =
       typeof body === 'object' && body !== null
-        ? body as Record<string, unknown>
+        ? (body as Record<string, unknown>)
         : {}
 
     let providerReference = ''
@@ -253,6 +283,7 @@ export class PaymentService {
             : 'PENDING'
 
         status = rawStatus as PrismaPaymentStatus
+
         break
       }
     }
@@ -375,10 +406,12 @@ export class PaymentService {
       throw new Error('Payment tidak ditemukan')
     }
 
+    const providerRef = payment.providerRef
+
     if (
       payment.provider !== 'manual' &&
       payment.status === 'PENDING' &&
-      payment.providerRef
+      providerRef
     ) {
       const provider = this.getProvider()
 
@@ -388,24 +421,19 @@ export class PaymentService {
           | undefined
 
         if (typeof provider.verifyPayment === 'function') {
-          result = await provider.verifyPayment(payment.providerRef)
-        } else if (typeof provider.getPaymentStatus === 'function') {
-          result = await provider.getPaymentStatus(payment.providerRef)
+          result = await provider.verifyPayment(providerRef)
+        } else if (
+          typeof provider.getPaymentStatus === 'function'
+        ) {
+          result = await provider.getPaymentStatus(providerRef)
         }
 
-        if (result?.status === 'PAID' && payment.providerRef) {
-          if (!payment.providerRef) {
-  throw new Error('Provider reference tidak ditemukan')
-}
+        if (result?.status === 'PAID') {
+          await this.processPaymentInternal(
+            providerRef,
+            payment.provider
+          )
 
-if (!payment.providerRef) {
-  throw new Error('Provider reference tidak ditemukan')
-}
-
-await this.processPaymentInternal(
-  payment.providerRef,
-  payment.provider
-)
           const updated = await prisma.payment.findUnique({
             where: { id: paymentId },
             include: {
@@ -452,7 +480,9 @@ await this.processPaymentInternal(
       }
 
       if (payment.status !== 'PENDING') {
-        throw new Error(`Payment status adalah ${payment.status}`)
+        throw new Error(
+          `Payment status adalah ${payment.status}`
+        )
       }
 
       const transition = await tx.payment.updateMany({
@@ -514,7 +544,9 @@ await this.processPaymentInternal(
       }
 
       if (payment.status !== 'PENDING') {
-        throw new Error(`Payment status adalah ${payment.status}`)
+        throw new Error(
+          `Payment status adalah ${payment.status}`
+        )
       }
 
       const transition = await tx.payment.updateMany({
@@ -538,7 +570,9 @@ await this.processPaymentInternal(
           userId: payment.userId,
           type: 'PAYMENT_REJECTED',
           title: 'Payment Ditolak',
-          message: note || 'Payment Anda ditolak. Silakan hubungi admin.',
+          message:
+            note ||
+            'Payment Anda ditolak. Silakan hubungi admin.',
         },
       })
 
