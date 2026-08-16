@@ -1,30 +1,921 @@
-model Payment {
-  id             String         @id @default(cuid())
-  userId         String
-  packageId      String
-  amount         Float
-  status         PaymentStatus  @default(PENDING)
-  provider       String?        // manual, midtrans, xendit, tripay, duitku
-  providerReference String?     // ID dari payment gateway
-  paymentUrl     String?        // URL pembayaran (untuk redirect)
-  qrImage        String?        // QRIS image (untuk manual)
-  proofImage     String?        // Bukti upload (manual)
-  adminNote      String?
-  reviewedAt     DateTime?
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-
-  user    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  package CoinPackage  @relation(fields: [packageId], references: [id])
+generator client {
+  provider = "prisma-client-js"
 }
-model ChapterWait {
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// USER & AUTH
+// ============================================================
+
+enum Role {
+  USER
+  TRANSLATOR
+  CREATOR
+  MODERATOR
+  ADMIN
+  FOUNDER
+}
+
+model User {
+  id             String   @id @default(cuid())
+  username       String   @unique
+  email          String   @unique
+  passwordHash   String
+  avatar         String?
+  bio            String?
+  role           Role     @default(USER)
+  coins          Int      @default(0)
+  exp            Int      @default(0)
+  level          Int      @default(1)
+  isBanned       Boolean  @default(false)
+  show18Plus     Boolean  @default(false)
+  lastActiveAt   DateTime?
+  timezone       String   @default("Asia/Jakarta")
+  followersCount Int      @default(0)
+  followingCount Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  accounts          Account[]
+  sessions          Session[]
+  bookmarks         Bookmark[]
+  history           ReadingHistory[]
+  progress          ReadingProgress[]
+  comments          Comment[]
+  commentLikes      CommentLike[]
+  commentReplies    CommentReply[]
+  commentReports    CommentReport[]
+  reports           Report[]
+  notifications     Notification[]
+  wallet            CoinWallet?
+  transactions      CoinTransaction[]
+  vip               UserVIP?
+  badges            UserBadge[]
+  titles            UserTitle[]
+  frames            UserAvatarFrame[]
+  inventory         UserInventory[]
+  missions          UserMission[]
+  rewards           UserDailyReward[]
+  entitlements      ChapterEntitlement[]
+  payments          Payment[]
+  requests          Request[]
+  communityMembers  CommunityMember[]
+  chatMessages      ChatMessage[]
+  auditLogs         AuditLog[]
+  follows           Follow[] @relation("UserFollows")
+  followers         Follow[] @relation("UserFollowers")
+  creatorProfile    CreatorProfile?
+  translatorProfile TranslatorProfile?
+  seriesOwned       Series[] @relation("OwnerSeries")
+  leaderboardEntries LeaderboardEntry[]
+  voucherRedemptions VoucherRedemption[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ============================================================
+// FOLLOW
+// ============================================================
+
+model Follow {
   id          String   @id @default(cuid())
-  userId      String
-  chapterId   String
-  expiresAt   DateTime
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+
+  follower  User @relation("UserFollows", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation("UserFollowers", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+  @@index([followingId])
+}
+
+// ============================================================
+// CONTENT
+// ============================================================
+
+enum SeriesType {
+  MANGA
+  MANHWA
+  MANHUA
+  NOVEL
+  ONE_SHOT
+}
+
+enum SeriesStatus {
+  ONGOING
+  COMPLETED
+  HIATUS
+}
+
+enum ContentLabel {
+  NORMAL
+  ADULT
+  GORE
+  PREMIUM
+}
+
+model Series {
+  id               String       @id @default(cuid())
+  title            String
+  slug             String       @unique
+  alternativeTitle String?
+  description      String?      @db.Text
+  cover            String?
+  author           String?
+  artist           String?
+  status           SeriesStatus @default(ONGOING)
+  type             SeriesType   @default(MANGA)
+  label            ContentLabel @default(NORMAL)
+  rating           Float        @default(0)
+  views            Int          @default(0)
+  readingCount     Int          @default(0)
+  completedCount   Int          @default(0)
+  is18Plus         Boolean      @default(false)
+  isPremium        Boolean      @default(false)
+  contentWarning   String?
+  published        Boolean      @default(true)
+  ownerId          String?
+  creatorId        String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  genres     SeriesGenre[]
+  chapters   Chapter[]
+  bookmarks  Bookmark[]
+  history    ReadingHistory[]
+  progress   ReadingProgress[]
+  comments   Comment[]
+  requests   Request[]
+  owner      User?            @relation("OwnerSeries", fields: [ownerId], references: [id])
+  creator    CreatorProfile?  @relation("CreatorSeries", fields: [creatorId], references: [id])
+
+  @@index([type])
+  @@index([status])
+  @@index([published])
+  @@index([createdAt])
+}
+
+model Genre {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  series SeriesGenre[]
+}
+
+model SeriesGenre {
+  seriesId String
+  genreId  String
+
+  series Series @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  genre  Genre  @relation(fields: [genreId], references: [id], onDelete: Cascade)
+
+  @@id([seriesId, genreId])
+}
+
+// ============================================================
+// CHAPTER
+// ============================================================
+
+model Chapter {
+  id            String   @id @default(cuid())
+  seriesId      String
+  chapterNumber Float
+  title         String?
+  contentType   String   @default("IMAGE")
+  wordCount     Int      @default(0)
+  coinPrice     Int      @default(1)
+  isPremium     Boolean  @default(false)
+  isLocked      Boolean  @default(false)
+  waitEnabled   Boolean  @default(false)
+  waitSeconds   Int      @default(6)
+  isPublished   Boolean  @default(true)
+  views         Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  series       Series               @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  images       ChapterImage[]
+  progress     ReadingProgress[]
+  entitlements ChapterEntitlement[]
+  history      ReadingHistory[]
+  comments     Comment[]
+  waits        ChapterWait[]
+
+  @@index([seriesId])
+  @@index([seriesId, chapterNumber])
+}
+
+model ChapterImage {
+  id         String  @id @default(cuid())
+  chapterId  String
+  pageNumber Int
+  storageKey String
+  url        String?
+  width      Int?
+  height     Int?
+
+  chapter Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  @@unique([chapterId, pageNumber])
+}
+
+model ChapterWait {
+  id         String   @id @default(cuid())
+  userId     String
+  chapterId  String
+  unlockedAt DateTime @default(now())
 
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   chapter Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
 
   @@unique([userId, chapterId])
+}
+
+// ============================================================
+// READING
+// ============================================================
+
+model Bookmark {
+  id        String   @id @default(cuid())
+  userId    String
+  seriesId  String
+  createdAt DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  series Series @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, seriesId])
+}
+
+model ReadingHistory {
+  id          String   @id @default(cuid())
+  userId      String
+  seriesId    String
+  chapterId   String
+  progress    Float    @default(0)
+  lastReadAt  DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  series  Series  @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  chapter Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  @@index([userId, lastReadAt])
+  @@unique([userId, chapterId])
+}
+
+model ReadingProgress {
+  id         String   @id @default(cuid())
+  userId     String
+  seriesId   String
+  chapterId  String
+  lastPage   Int      @default(0)
+  progress   Float    @default(0)
+  lastReadAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  series  Series  @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  chapter Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, seriesId, chapterId])
+}
+
+// ============================================================
+// COIN & WALLET
+// ============================================================
+
+model CoinWallet {
+  id      String @id @default(cuid())
+  userId  String @unique
+  balance Int    @default(0)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum TransactionType {
+  TOPUP
+  PURCHASE
+  REWARD
+  ADMIN_GRANT
+  REFUND
+  BONUS
+}
+
+model CoinTransaction {
+  id          String          @id @default(cuid())
+  userId      String
+  type        TransactionType
+  amount      Int
+  balance     Int
+  referenceId String?
+  description String?
+  createdAt   DateTime        @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model CoinPackage {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  coins       Int
+  price       Float
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  payments Payment[]
+}
+
+model ChapterEntitlement {
+  id         String   @id @default(cuid())
+  userId     String
+  chapterId  String
+  unlockedAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chapter Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, chapterId])
+}
+
+// ============================================================
+// PAYMENT
+// ============================================================
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  REJECTED
+  EXPIRED
+  CANCELLED
+}
+
+model Payment {
+  id          String        @id @default(cuid())
+  userId      String
+  packageId   String
+  amount      Float
+  status      PaymentStatus @default(PENDING)
+  provider    String?
+  providerRef String?
+  proofImage  String?
+  adminNote   String?
+  reviewedAt  DateTime?
+  expiresAt   DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  package CoinPackage @relation(fields: [packageId], references: [id])
+
+  @@index([userId, createdAt])
+  @@index([status])
+  @@index([providerRef])
+}
+
+// ============================================================
+// VIP
+// ============================================================
+
+model VIPPlan {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  days        Int
+  price       Float
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  userVIPs UserVIP[]
+}
+
+model UserVIP {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  planId    String
+  startedAt DateTime @default(now())
+  expiresAt DateTime
+  autoRenew Boolean  @default(false)
+
+  user User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan VIPPlan @relation(fields: [planId], references: [id])
+}
+
+// ============================================================
+// GAMIFICATION
+// ============================================================
+
+model Badge {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  icon        String?
+  category    String
+  createdAt   DateTime @default(now())
+
+  userBadges UserBadge[]
+}
+
+model UserBadge {
+  id        String   @id @default(cuid())
+  userId    String
+  badgeId   String
+  awardedAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badge Badge @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, badgeId])
+}
+
+model Title {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  color       String?
+  createdAt   DateTime @default(now())
+
+  userTitles UserTitle[]
+}
+
+model UserTitle {
+  id        String   @id @default(cuid())
+  userId    String
+  titleId   String
+  isActive  Boolean  @default(false)
+  awardedAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title Title @relation(fields: [titleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, titleId])
+}
+
+model AvatarFrame {
+  id          String   @id @default(cuid())
+  name        String
+  image       String?
+  description String?
+  category    String
+  createdAt   DateTime @default(now())
+
+  userFrames UserAvatarFrame[]
+}
+
+model UserAvatarFrame {
+  id        String   @id @default(cuid())
+  userId    String
+  frameId   String
+  isActive  Boolean  @default(false)
+  awardedAt DateTime @default(now())
+
+  user  User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  frame AvatarFrame @relation(fields: [frameId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, frameId])
+}
+
+model InventoryItem {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  type        String
+  itemId      String?
+  value       String?
+  createdAt   DateTime @default(now())
+
+  userItems UserInventory[]
+}
+
+model UserInventory {
+  id         String   @id @default(cuid())
+  userId     String
+  itemId     String
+  isActive   Boolean  @default(false)
+  acquiredAt DateTime @default(now())
+
+  user User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  item InventoryItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, itemId])
+}
+
+// ============================================================
+// MISSIONS & DAILY REWARDS
+// ============================================================
+
+model Mission {
+  id           String   @id @default(cuid())
+  title        String
+  description  String?
+  type         String
+  requirement  Int
+  rewardCoins  Int      @default(0)
+  rewardExp    Int      @default(0)
+  rewardItem   String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  userMissions UserMission[]
+}
+
+model UserMission {
+  id          String   @id @default(cuid())
+  userId      String
+  missionId   String
+  progress    Int      @default(0)
+  completed   Boolean  @default(false)
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mission Mission @relation(fields: [missionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, missionId])
+}
+
+model DailyReward {
+  id          String   @id @default(cuid())
+  day         Int
+  coins       Int      @default(0)
+  exp         Int      @default(0)
+  item        String?
+  createdAt   DateTime @default(now())
+
+  userRewards UserDailyReward[]
+}
+
+model UserDailyReward {
+  id        String   @id @default(cuid())
+  userId    String
+  rewardId  String
+  claimedAt DateTime @default(now())
+
+  user   User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reward DailyReward @relation(fields: [rewardId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, rewardId])
+}
+
+// ============================================================
+// LEADERBOARD
+// ============================================================
+
+model Leaderboard {
+  id          String   @id @default(cuid())
+  name        String
+  category    String
+  resetDay    String   @default("SUNDAY")
+  resetTime   String   @default("07:00")
+  reward1     String?
+  reward2     String?
+  reward3     String?
+  createdAt   DateTime @default(now())
+
+  entries LeaderboardEntry[]
+}
+
+model LeaderboardEntry {
+  id            String   @id @default(cuid())
+  leaderboardId String
+  userId        String
+  score         Int      @default(0)
+  rank          Int      @default(0)
+  createdAt     DateTime @default(now())
+
+  leaderboard Leaderboard @relation(fields: [leaderboardId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([leaderboardId, userId])
+  @@index([leaderboardId, rank])
+}
+
+// ============================================================
+// COMMUNITY & CHAT
+// ============================================================
+
+model Community {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  type        String   @default("global")
+  avatar      String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  members  CommunityMember[]
+  messages ChatMessage[]
+}
+
+model CommunityMember {
+  id          String   @id @default(cuid())
+  communityId String
+  userId      String
+  role        String   @default("MEMBER")
+  joinedAt    DateTime @default(now())
+
+  community Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([communityId, userId])
+}
+
+model ChatMessage {
+  id          String   @id @default(cuid())
+  communityId String
+  userId      String
+  content     String   @db.Text
+  isRead      Boolean  @default(false)
+  replyToId   String?
+  createdAt   DateTime @default(now())
+
+  community Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  replyTo   ChatMessage? @relation("ReplyTo", fields: [replyToId], references: [id])
+  replies   ChatMessage[] @relation("ReplyTo")
+
+  @@index([communityId, createdAt])
+}
+
+// ============================================================
+// REQUEST
+// ============================================================
+
+model Request {
+  id        String     @id @default(cuid())
+  userId    String
+  seriesId  String?
+  title     String
+  type      SeriesType
+  source    String?
+  message   String?    @db.Text
+  status    String     @default("PENDING")
+  adminNote String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  series Series? @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([status])
+}
+
+// ============================================================
+// NOTIFICATIONS
+// ============================================================
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  title     String?
+  message   String?
+  data      Json?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead, createdAt])
+}
+
+// ============================================================
+// BANNERS & ANNOUNCEMENTS
+// ============================================================
+
+model Banner {
+  id        String   @id @default(cuid())
+  title     String?
+  image     String
+  link      String?
+  order     Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive, order])
+}
+
+model Announcement {
+  id        String   @id @default(cuid())
+  content   String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+}
+
+// ============================================================
+// COMMENTS
+// ============================================================
+
+model Comment {
+  id        String   @id @default(cuid())
+  userId    String
+  seriesId  String?
+  chapterId String?
+  content   String   @db.Text
+  isSpoiler Boolean  @default(false)
+  isHidden  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  series  Series?  @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  chapter Chapter? @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  replies CommentReply[]
+  likes   CommentLike[]
+  reports CommentReport[]
+
+  @@index([seriesId, createdAt])
+  @@index([chapterId, createdAt])
+}
+
+model CommentReply {
+  id        String   @id @default(cuid())
+  commentId String
+  userId    String
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+
+  comment Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([commentId, createdAt])
+}
+
+model CommentLike {
+  id        String   @id @default(cuid())
+  userId    String
+  commentId String
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comment Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, commentId])
+}
+
+model CommentReport {
+  id        String   @id @default(cuid())
+  commentId String
+  userId    String
+  reason    String
+  status    String   @default("PENDING")
+  createdAt DateTime @default(now())
+
+  comment Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+}
+
+// ============================================================
+// REPORT
+// ============================================================
+
+model Report {
+  id         String   @id @default(cuid())
+  userId     String
+  targetId   String
+  targetType String
+  reason     String
+  status     String   @default("PENDING")
+  resolvedBy String?
+  resolvedAt DateTime?
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([targetType, targetId])
+  @@index([status])
+}
+
+// ============================================================
+// CREATOR / TRANSLATOR
+// ============================================================
+
+model CreatorProfile {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  displayName String?
+  bio         String?
+  website     String?
+  socialLinks Json?
+  stats       Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  series Series[] @relation("CreatorSeries")
+}
+
+model TranslatorProfile {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  displayName String?
+  bio         String?
+  languages   String[]
+  stats       Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ============================================================
+// SITE SETTINGS & AUDIT
+// ============================================================
+
+model SiteSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String
+  action     String
+  targetId   String?
+  targetType String?
+  details    Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+// ============================================================
+// VOUCHER
+// ============================================================
+
+model Voucher {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  type        String
+  value       Json
+  maxUses     Int      @default(1)
+  usedCount   Int      @default(0)
+  expiresAt   DateTime?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  redemptions VoucherRedemption[]
+}
+
+model VoucherRedemption {
+  id         String   @id @default(cuid())
+  voucherId  String
+  userId     String
+  redeemedAt DateTime @default(now())
+
+  voucher Voucher @relation(fields: [voucherId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([voucherId, userId])
 }
