@@ -1,24 +1,32 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/db/prisma'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth'
-import { z } from 'zod'
+import { prisma } from '@/lib/db/prisma'
+import { Role } from '@prisma/client'
 
-const bannerSchema = z.object({
-  title: z.string().optional(),
-  image: z.string(),
-  link: z.string().optional(),
-  order: z.number().default(0),
-  isActive: z.boolean().default(true),
-})
+async function isAdmin() {
+  const session = await getServerSession(authOptions)
 
-export async function GET(req: Request) {
+  if (!session?.user?.id) return false
+
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { role: true, isBanned: true },
+  })
+
+  return !!(
+    user &&
+    !user.isBanned &&
+    [Role.ADMIN, Role.FOUNDER].includes(user.role)
+  )
+}
+
+export async function GET() {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session || !['ADMIN', 'FOUNDER'].includes(session.user.role)) {
+    if (!(await isAdmin())) {
       return NextResponse.json(
-        { success: false, message: 'Unauthorized' },
-        { status: 401 }
+        { success: false, message: 'Tidak memiliki akses' },
+        { status: 403 }
       )
     }
 
@@ -31,8 +39,13 @@ export async function GET(req: Request) {
       data: banners,
     })
   } catch (error) {
+    console.error(error)
+
     return NextResponse.json(
-      { success: false, message: 'Internal server error' },
+      {
+        success: false,
+        message: 'Gagal mengambil banner',
+      },
       { status: 500 }
     )
   }
@@ -40,19 +53,38 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session || !['ADMIN', 'FOUNDER'].includes(session.user.role)) {
+    if (!(await isAdmin())) {
       return NextResponse.json(
-        { success: false, message: 'Unauthorized' },
-        { status: 401 }
+        { success: false, message: 'Tidak memiliki akses' },
+        { status: 403 }
       )
     }
 
     const body = await req.json()
-    const validated = bannerSchema.parse(body)
+
+    const title = String(body.title || '').trim()
+    const image = String(body.image || '').trim()
+    const link = String(body.link || '').trim()
+    const order = Number(body.order || 0)
+
+    if (!title || !image) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Title dan image wajib diisi',
+        },
+        { status: 400 }
+      )
+    }
 
     const banner = await prisma.banner.create({
-      data: validated,
+      data: {
+        title,
+        image,
+        link: link || null,
+        order: Number.isFinite(order) ? order : 0,
+        active: true,
+      },
     })
 
     return NextResponse.json({
@@ -60,87 +92,13 @@ export async function POST(req: Request) {
       data: banner,
     })
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { success: false, message: 'Input tidak valid' },
-        { status: 400 }
-      )
-    }
+    console.error(error)
+
     return NextResponse.json(
-      { success: false, message: 'Internal server error' },
-      { status: 500 }
-    )
-  }
-}
-
-export async function PUT(req: Request) {
-  try {
-    const session = await getServerSession(authOptions)
-    if (!session || !['ADMIN', 'FOUNDER'].includes(session.user.role)) {
-      return NextResponse.json(
-        { success: false, message: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
-
-    const body = await req.json()
-    const { id, ...data } = body
-
-    if (!id) {
-      return NextResponse.json(
-        { success: false, message: 'id diperlukan' },
-        { status: 400 }
-      )
-    }
-
-    const banner = await prisma.banner.update({
-      where: { id },
-      data,
-    })
-
-    return NextResponse.json({
-      success: true,
-      data: banner,
-    })
-  } catch (error) {
-    return NextResponse.json(
-      { success: false, message: 'Internal server error' },
-      { status: 500 }
-    )
-  }
-}
-
-export async function DELETE(req: Request) {
-  try {
-    const session = await getServerSession(authOptions)
-    if (!session || !['ADMIN', 'FOUNDER'].includes(session.user.role)) {
-      return NextResponse.json(
-        { success: false, message: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
-
-    const url = new URL(req.url)
-    const id = url.searchParams.get('id')
-
-    if (!id) {
-      return NextResponse.json(
-        { success: false, message: 'id diperlukan' },
-        { status: 400 }
-      )
-    }
-
-    await prisma.banner.delete({
-      where: { id },
-    })
-
-    return NextResponse.json({
-      success: true,
-      message: 'Banner dihapus',
-    })
-  } catch (error) {
-    return NextResponse.json(
-      { success: false, message: 'Internal server error' },
+      {
+        success: false,
+        message: 'Gagal membuat banner',
+      },
       { status: 500 }
     )
   }
