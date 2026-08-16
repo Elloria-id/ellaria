@@ -4,68 +4,129 @@ import bcrypt from 'bcryptjs'
 import { z } from 'zod'
 
 const registerSchema = z.object({
-  username: z.string().min(3).max(30),
-  email: z.string().email(),
-  password: z.string().min(8),
+  username: z
+    .string()
+    .min(3)
+    .max(30)
+    .regex(
+      /^[a-zA-Z0-9_]+$/,
+      'Username hanya boleh berisi huruf, angka, dan underscore'
+    ),
+
+  email: z
+    .string()
+    .email(),
+
+  password: z
+    .string()
+    .min(8),
 })
 
 export async function POST(req: Request) {
   try {
     const body = await req.json()
-    const validated = registerSchema.parse(body)
 
-    const result = await prisma.$transaction(async (tx) => {
-      const existingUser = await tx.user.findFirst({
-        where: {
-          OR: [{ email: validated.email }, { username: validated.username }],
+    const data = registerSchema.parse(body)
+
+    const username = data.username.trim()
+    const email = data.email.toLowerCase().trim()
+
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        OR: [
+          {
+            email,
+          },
+          {
+            username,
+          },
+        ],
+      },
+    })
+
+    if (existingUser) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Email atau username sudah digunakan',
         },
-      })
+        {
+          status: 409,
+        }
+      )
+    }
 
-      if (existingUser) {
-        throw new Error('Email atau username sudah digunakan')
+    const passwordHash = await bcrypt.hash(
+      data.password,
+      12
+    )
+
+    const user = await prisma.$transaction(
+      async (tx) => {
+        const newUser = await tx.user.create({
+          data: {
+            username,
+            email,
+            passwordHash,
+            role: 'USER',
+            coins: 0,
+            exp: 0,
+            level: 1,
+          },
+        })
+
+        await tx.coinWallet.create({
+          data: {
+            userId: newUser.id,
+            balance: 0,
+          },
+        })
+
+        return newUser
       }
+    )
 
-      const passwordHash = await bcrypt.hash(validated.password, 10)
-
-      const user = await tx.user.create({
-        data: {
-          username: validated.username,
-          email: validated.email,
-          passwordHash,
-          role: 'USER',
+    return NextResponse.json(
+      {
+        success: true,
+        message: 'Akun berhasil dibuat',
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
         },
-      })
-
-      await tx.coinWallet.create({
-        data: {
-          userId: user.id,
-          balance: 0,
-        },
-      })
-
-      return user
-    })
-
-    return NextResponse.json({
-      success: true,
-      message: 'Akun berhasil dibuat',
-    })
+      },
+      {
+        status: 201,
+      }
+    )
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { success: false, message: 'Input tidak valid' },
-        { status: 400 }
+        {
+          success: false,
+          message: 'Data pendaftaran tidak valid',
+          errors: error.flatten().fieldErrors,
+        },
+        {
+          status: 400,
+        }
       )
     }
-    if (error instanceof Error) {
-      return NextResponse.json(
-        { success: false, message: error.message },
-        { status: 400 }
-      )
-    }
+
+    console.error(
+      'REGISTER_ERROR:',
+      error
+    )
+
     return NextResponse.json(
-      { success: false, message: 'Internal server error' },
-      { status: 500 }
+      {
+        success: false,
+        message: 'Terjadi kesalahan pada server',
+      },
+      {
+        status: 500,
+      }
     )
   }
 }
