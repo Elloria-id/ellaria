@@ -1,106 +1,129 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/db/prisma'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth'
-import { z } from 'zod'
-
-const followSchema = z.object({
-  targetId: z.string(),
-})
+import { prisma } from '@/lib/db/prisma'
 
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session) {
+
+    if (!session?.user?.id) {
       return NextResponse.json(
-        { success: false, message: 'Unauthorized' },
+        { success: false, message: 'Anda harus login' },
         { status: 401 }
       )
     }
 
     const body = await req.json()
-    const validated = followSchema.parse(body)
+    const followingId = body.followingId
 
-    if (validated.targetId === session.user.id) {
+    if (!followingId || typeof followingId !== 'string') {
       return NextResponse.json(
-        { success: false, message: 'Tidak bisa follow diri sendiri' },
+        { success: false, message: 'followingId diperlukan' },
         { status: 400 }
       )
     }
 
-    const target = await prisma.user.findUnique({
-      where: { id: validated.targetId },
+    if (followingId === session.user.id) {
+      return NextResponse.json(
+        { success: false, message: 'Tidak dapat mengikuti diri sendiri' },
+        { status: 400 }
+      )
+    }
+
+    const targetUser = await prisma.user.findUnique({
+      where: { id: followingId },
+      select: {
+        id: true,
+        username: true,
+        isBanned: true,
+      },
     })
 
-    if (!target) {
+    if (!targetUser) {
       return NextResponse.json(
         { success: false, message: 'User tidak ditemukan' },
         { status: 404 }
       )
     }
 
-    const follow = await prisma.$transaction(async (tx) => {
-      const existing = await tx.follow.findUnique({
-        where: {
-          followerId_followingId: {
-            followerId: session.user.id,
-            followingId: validated.targetId,
-          },
+    if (targetUser.isBanned) {
+      return NextResponse.json(
+        { success: false, message: 'User tidak dapat diikuti' },
+        { status: 400 }
+      )
+    }
+
+    const existingFollow = await prisma.follow.findUnique({
+      where: {
+        followerId_followingId: {
+          followerId: session.user.id,
+          followingId,
         },
+      },
+    })
+
+    if (existingFollow) {
+      return NextResponse.json({
+        success: true,
+        following: false,
+        message: `Berhenti mengikuti ${targetUser.username}`,
       })
+    }
 
-      if (existing) {
-        throw new Error('Sudah mengikuti')
-      }
-
-      const newFollow = await tx.follow.create({
+    await prisma.$transaction([
+      prisma.follow.create({
         data: {
           followerId: session.user.id,
-          followingId: validated.targetId,
+          followingId,
         },
-      })
+      }),
 
-      await tx.user.update({
+      prisma.user.update({
         where: { id: session.user.id },
-        data: { followingCount: { increment: 1 } },
-      })
-
-      await tx.user.update({
-        where: { id: validated.targetId },
-        data: { followersCount: { increment: 1 } },
-      })
-
-      await tx.notification.create({
         data: {
-          userId: validated.targetId,
-          type: 'FOLLOW',
-          title: 'Pengikut Baru',
-          message: `${session.user.username} mulai mengikuti Anda`,
+          followingCount: {
+            increment: 1,
+          },
         },
-      })
+      }),
 
-      return newFollow
-    })
+      prisma.user.update({
+        where: { id: followingId },
+        data: {
+          followersCount: {
+            increment: 1,
+          },
+        },
+      }),
+
+      prisma.notification.create({
+        data: {
+          userId: followingId,
+          type: 'FOLLOW',
+          title: 'Pengikut baru',
+          message: `${session.user.username ?? 'Seseorang'} mulai mengikuti Anda`,
+          data: {
+            followerId: session.user.id,
+            followerUsername: session.user.username ?? null,
+          },
+        },
+      }),
+    ])
 
     return NextResponse.json({
       success: true,
-      data: follow,
+      following: true,
+      message: `Sekarang mengikuti ${targetUser.username}`,
     })
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { success: false, message: 'Input tidak valid' },
-        { status: 400 }
-      )
-    }
-    if (error instanceof Error) {
-      return NextResponse.json(
-        { success: false, message: error.message },
-        { status: 400 }
-      )
-    }
+    console.error('FOLLOW_ERROR:', error)
+
     return NextResponse.json(
-      { success: false, message: 'Internal server error' },
+      {
+        success: false,
+        message: 'Gagal mengikuti user',
+      },
       { status: 500 }
     )
   }
@@ -109,51 +132,83 @@ export async function POST(req: Request) {
 export async function DELETE(req: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session) {
+
+    if (!session?.user?.id) {
       return NextResponse.json(
-        { success: false, message: 'Unauthorized' },
+        { success: false, message: 'Anda harus login' },
         { status: 401 }
       )
     }
 
-    const url = new URL(req.url)
-    const targetId = url.searchParams.get('targetId')
+    const body = await req.json()
+    const followingId = body.followingId
 
-    if (!targetId) {
+    if (!followingId || typeof followingId !== 'string') {
       return NextResponse.json(
-        { success: false, message: 'targetId diperlukan' },
+        { success: false, message: 'followingId diperlukan' },
         { status: 400 }
       )
     }
 
-    await prisma.$transaction(async (tx) => {
-      await tx.follow.delete({
+    const existingFollow = await prisma.follow.findUnique({
+      where: {
+        followerId_followingId: {
+          followerId: session.user.id,
+          followingId,
+        },
+      },
+    })
+
+    if (!existingFollow) {
+      return NextResponse.json({
+        success: true,
+        following: false,
+        message: 'Belum mengikuti user tersebut',
+      })
+    }
+
+    await prisma.$transaction([
+      prisma.follow.delete({
         where: {
           followerId_followingId: {
             followerId: session.user.id,
-            followingId: targetId,
+            followingId,
           },
         },
-      })
+      }),
 
-      await tx.user.update({
+      prisma.user.update({
         where: { id: session.user.id },
-        data: { followingCount: { decrement: 1 } },
-      })
+        data: {
+          followingCount: {
+            decrement: 1,
+          },
+        },
+      }),
 
-      await tx.user.update({
-        where: { id: targetId },
-        data: { followersCount: { decrement: 1 } },
-      })
-    })
+      prisma.user.update({
+        where: { id: followingId },
+        data: {
+          followersCount: {
+            decrement: 1,
+          },
+        },
+      }),
+    ])
 
     return NextResponse.json({
       success: true,
-      message: 'Berhenti mengikuti',
+      following: false,
+      message: 'Berhenti mengikuti user',
     })
   } catch (error) {
+    console.error('UNFOLLOW_ERROR:', error)
+
     return NextResponse.json(
-      { success: false, message: 'Internal server error' },
+      {
+        success: false,
+        message: 'Gagal berhenti mengikuti user',
+      },
       { status: 500 }
     )
   }
@@ -162,57 +217,63 @@ export async function DELETE(req: Request) {
 export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session) {
+
+    if (!session?.user?.id) {
       return NextResponse.json(
-        { success: false, message: 'Unauthorized' },
+        { success: false, message: 'Anda harus login' },
         { status: 401 }
       )
     }
 
-    const url = new URL(req.url)
-    const type = url.searchParams.get('type') || 'following'
-    const userId = url.searchParams.get('userId') || session.user.id
+    const { searchParams } = new URL(req.url)
+    const userId = searchParams.get('userId')
 
-    if (type === 'following') {
-      const follows = await prisma.follow.findMany({
-        where: { followerId: userId },
-        include: {
-          following: {
-            select: {
-              id: true,
-              username: true,
-              avatar: true,
-              level: true,
-            },
-          },
-        },
-      })
-      return NextResponse.json({
-        success: true,
-        data: follows.map(f => f.following),
-      })
-    } else {
-      const follows = await prisma.follow.findMany({
-        where: { followingId: userId },
-        include: {
-          follower: {
-            select: {
-              id: true,
-              username: true,
-              avatar: true,
-              level: true,
-            },
-          },
-        },
-      })
-      return NextResponse.json({
-        success: true,
-        data: follows.map(f => f.follower),
-      })
+    if (!userId) {
+      return NextResponse.json(
+        { success: false, message: 'userId diperlukan' },
+        { status: 400 }
+      )
     }
+
+    const follow = await prisma.follow.findUnique({
+      where: {
+        followerId_followingId: {
+          followerId: session.user.id,
+          followingId: userId,
+        },
+      },
+    })
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        username: true,
+        followersCount: true,
+        followingCount: true,
+      },
+    })
+
+    if (!user) {
+      return NextResponse.json(
+        { success: false, message: 'User tidak ditemukan' },
+        { status: 404 }
+      )
+    }
+
+    return NextResponse.json({
+      success: true,
+      following: !!follow,
+      user,
+    })
   } catch (error) {
+    console.error('FOLLOW_STATUS_ERROR:', error)
+
     return NextResponse.json(
-      { success: false, message: 'Internal server error' },
+      {
+        success: false,
+        message: 'Gagal mengambil status follow',
+      },
       { status: 500 }
     )
   }
