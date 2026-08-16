@@ -1,33 +1,39 @@
+export interface CreatePaymentParams {
+  merchantRef: string
+  amount: number
+  method: string
+  customerName: string
+  customerEmail: string
+  customerPhone?: string
+  itemName: string
+  returnUrl?: string
+  callbackUrl?: string
+}
+
+export interface PaymentResult {
+  success: boolean
+  reference?: string
+  merchantRef?: string
+  amount?: number
+  status?: string
+  checkoutUrl?: string
+  qrUrl?: string
+  qrString?: string
+  expiredAt?: string
+  message?: string
+}
+
 export interface PaymentProvider {
-  // Identitas provider
-  name: string
-
-  // Membuat transaksi pembayaran
   createPayment(
-    userId: string,
-    packageId: string,
-    amount: number,
-    metadata?: {
-      username?: string
-      email?: string
-      phone?: string
-      description?: string
-    }
-  ): Promise<{
-    paymentId: string          // ID internal
-    providerReference: string  // ID dari gateway
-    paymentUrl?: string        // URL redirect (Midtrans/Xendit/Tripay)
-    qrImage?: string           // QRIS untuk manual
-    instructions?: string
-    expiresAt?: Date
-  }>
+    params: CreatePaymentParams
+  ): Promise<PaymentResult>
 
-  // Verifikasi status pembayaran (untuk polling manual)
-  verifyPayment(providerReference: string): Promise<{
-    status: 'PENDING' | 'PAID' | 'EXPIRED' | 'FAILED'
-    metadata?: any
-  }>
+  getPaymentStatus(
+    reference: string
+  ): Promise<PaymentResult>
 
-  // Verifikasi webhook signature (untuk keamanan)
-  verifyWebhookSignature(body: any, signature: string): boolean
+  validateCallback(
+    payload: unknown,
+    signature: string
+  ): boolean
 }
