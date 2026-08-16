@@ -9,6 +9,7 @@ export async function GET(
 ) {
   try {
     const session = await getServerSession(authOptions)
+
     if (!session) {
       return NextResponse.json(
         { success: false, message: 'Unauthorized' },
@@ -18,8 +19,18 @@ export async function GET(
 
     const payment = await PaymentService.getPaymentStatus(params.id)
 
+    if (!payment) {
+      return NextResponse.json(
+        { success: false, message: 'Payment tidak ditemukan' },
+        { status: 404 }
+      )
+    }
+
     // Verifikasi ownership
-    if (payment.userId !== session.user.id && !['ADMIN', 'FOUNDER'].includes(session.user.role)) {
+    if (
+      payment.userId !== session.user.id &&
+      !['ADMIN', 'FOUNDER'].includes(session.user.role)
+    ) {
       return NextResponse.json(
         { success: false, message: 'Forbidden' },
         { status: 403 }
@@ -32,7 +43,12 @@ export async function GET(
     })
   } catch (error) {
     return NextResponse.json(
-      { success: false, message: (error as Error).message },
+      {
+        success: false,
+        message: error instanceof Error
+          ? error.message
+          : 'Terjadi kesalahan',
+      },
       { status: 500 }
     )
   }
