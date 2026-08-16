@@ -1,46 +1,51 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/db/prisma'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth'
-import { z } from 'zod'
+import { prisma } from '@/lib/db/prisma'
 
-const bookmarkSchema = z.object({
-  seriesId: z.string(),
-})
-
-export async function GET(req: Request) {
+export async function GET() {
   try {
     const session = await getServerSession(authOptions)
-    if (!session) {
+
+    if (!session?.user?.id) {
       return NextResponse.json(
         { success: false, message: 'Unauthorized' },
         { status: 401 }
       )
     }
 
-    const url = new URL(req.url)
-    const sort = url.searchParams.get('sort') || 'newest'
-
-    const orderBy: any = {}
-    if (sort === 'newest') orderBy.createdAt = 'desc'
-    else if (sort === 'oldest') orderBy.createdAt = 'asc'
-    else if (sort === 'title') orderBy.series = { title: 'asc' }
-
     const bookmarks = await prisma.bookmark.findMany({
-      where: { userId: session.user.id },
+      where: {
+        userId: session.user.id,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
       include: {
         series: {
           include: {
-            genres: { include: { genre: true } },
+            genres: {
+              include: {
+                genre: true,
+              },
+            },
             chapters: {
-              where: { isPublished: true },
-              orderBy: { chapterNumber: 'desc' },
+              where: {
+                isPublished: true,
+              },
+              orderBy: {
+                chapterNumber: 'desc',
+              },
               take: 1,
+              select: {
+                id: true,
+                chapterNumber: true,
+                title: true,
+              },
             },
           },
         },
       },
-      orderBy,
     })
 
     return NextResponse.json({
@@ -48,8 +53,13 @@ export async function GET(req: Request) {
       data: bookmarks,
     })
   } catch (error) {
+    console.error('BOOKMARK_GET_ERROR:', error)
+
     return NextResponse.json(
-      { success: false, message: 'Internal server error' },
+      {
+        success: false,
+        message: 'Gagal mengambil bookmark',
+      },
       { status: 500 }
     )
   }
@@ -58,7 +68,8 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session) {
+
+    if (!session?.user?.id) {
       return NextResponse.json(
         { success: false, message: 'Unauthorized' },
         { status: 401 }
@@ -66,77 +77,39 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json()
-    const validated = bookmarkSchema.parse(body)
-
-    const bookmark = await prisma.bookmark.upsert({
-      where: {
-        userId_seriesId: {
-          userId: session.user.id,
-          seriesId: validated.seriesId,
-        },
-      },
-      update: {},
-      create: {
-        userId: session.user.id,
-        seriesId: validated.seriesId,
-      },
-    })
-
-    return NextResponse.json({
-      success: true,
-      data: bookmark,
-    })
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { success: false, message: 'Input tidak valid' },
-        { status: 400 }
-      )
-    }
-    return NextResponse.json(
-      { success: false, message: 'Internal server error' },
-      { status: 500 }
-    )
-  }
-}
-
-export async function DELETE(req: Request) {
-  try {
-    const session = await getServerSession(authOptions)
-    if (!session) {
-      return NextResponse.json(
-        { success: false, message: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
-
-    const url = new URL(req.url)
-    const seriesId = url.searchParams.get('seriesId')
+    const seriesId = String(body.seriesId || '').trim()
 
     if (!seriesId) {
       return NextResponse.json(
-        { success: false, message: 'seriesId diperlukan' },
+        {
+          success: false,
+          message: 'seriesId diperlukan',
+        },
         { status: 400 }
       )
     }
 
-    const bookmark = await prisma.bookmark.findUnique({
+    const series = await prisma.series.findUnique({
       where: {
-        userId_seriesId: {
-          userId: session.user.id,
-          seriesId,
-        },
+        id: seriesId,
+      },
+      select: {
+        id: true,
+        published: true,
       },
     })
 
-    if (!bookmark) {
+    if (!series || !series.published) {
       return NextResponse.json(
-        { success: false, message: 'Bookmark tidak ditemukan' },
+        {
+          success: false,
+          message: 'Series tidak ditemukan',
+        },
         { status: 404 }
       )
     }
 
-    await prisma.bookmark.delete({
+    const existing = await prisma.bookmark.findUnique({
       where: {
         userId_seriesId: {
           userId: session.user.id,
@@ -145,13 +118,41 @@ export async function DELETE(req: Request) {
       },
     })
 
+    if (existing) {
+      await prisma.bookmark.delete({
+        where: {
+          id: existing.id,
+        },
+      })
+
+      return NextResponse.json({
+        success: true,
+        bookmarked: false,
+        message: 'Bookmark dihapus',
+      })
+    }
+
+    const bookmark = await prisma.bookmark.create({
+      data: {
+        userId: session.user.id,
+        seriesId,
+      },
+    })
+
     return NextResponse.json({
       success: true,
-      message: 'Bookmark dihapus',
+      bookmarked: true,
+      data: bookmark,
+      message: 'Series ditambahkan ke bookmark',
     })
   } catch (error) {
+    console.error('BOOKMARK_POST_ERROR:', error)
+
     return NextResponse.json(
-      { success: false, message: 'Internal server error' },
+      {
+        success: false,
+        message: 'Gagal mengubah bookmark',
+      },
       { status: 500 }
     )
   }
