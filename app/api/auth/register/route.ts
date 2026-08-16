@@ -26,65 +26,74 @@ export async function POST(req: Request) {
   try {
     const body = await req.json()
 
-    const data = registerSchema.parse(body)
-
-    const username = data.username.trim()
-    const email = data.email.toLowerCase().trim()
+    const data = registerSchema.parse({
+      username: String(body.username).trim(),
+      email: String(body.email).toLowerCase().trim(),
+      password: String(body.password),
+    })
 
     const existingUser = await prisma.user.findFirst({
       where: {
         OR: [
           {
-            email,
+            email: data.email,
           },
           {
-            username,
+            username: data.username,
           },
         ],
+      },
+      select: {
+        id: true,
+        email: true,
+        username: true,
       },
     })
 
     if (existingUser) {
+      if (existingUser.email === data.email) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: 'Email sudah digunakan',
+          },
+          { status: 409 }
+        )
+      }
+
       return NextResponse.json(
         {
           success: false,
-          message: 'Email atau username sudah digunakan',
+          message: 'Username sudah digunakan',
         },
-        {
-          status: 409,
-        }
+        { status: 409 }
       )
     }
 
-    const passwordHash = await bcrypt.hash(
-      data.password,
-      12
-    )
+    const passwordHash = await bcrypt.hash(data.password, 12)
 
-    const user = await prisma.$transaction(
-      async (tx) => {
-        const newUser = await tx.user.create({
-          data: {
-            username,
-            email,
-            passwordHash,
-            role: 'USER',
-            coins: 0,
-            exp: 0,
-            level: 1,
-          },
-        })
+    const user = await prisma.$transaction(async (tx) => {
+      const newUser = await tx.user.create({
+        data: {
+          username: data.username,
+          email: data.email,
+          passwordHash,
+          role: 'USER',
+          coins: 0,
+          exp: 0,
+          level: 1,
+        },
+      })
 
-        await tx.coinWallet.create({
-          data: {
-            userId: newUser.id,
-            balance: 0,
-          },
-        })
+      await tx.coinWallet.create({
+        data: {
+          userId: newUser.id,
+          balance: 0,
+        },
+      })
 
-        return newUser
-      }
-    )
+      return newUser
+    })
 
     return NextResponse.json(
       {
@@ -96,9 +105,7 @@ export async function POST(req: Request) {
           email: user.email,
         },
       },
-      {
-        status: 201,
-      }
+      { status: 201 }
     )
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -106,27 +113,20 @@ export async function POST(req: Request) {
         {
           success: false,
           message: 'Data pendaftaran tidak valid',
-          errors: error.flatten().fieldErrors,
+          errors: error.flatten(),
         },
-        {
-          status: 400,
-        }
+        { status: 400 }
       )
     }
 
-    console.error(
-      'REGISTER_ERROR:',
-      error
-    )
+    console.error('REGISTER_ERROR:', error)
 
     return NextResponse.json(
       {
         success: false,
         message: 'Terjadi kesalahan pada server',
       },
-      {
-        status: 500,
-      }
+      { status: 500 }
     )
   }
 }
