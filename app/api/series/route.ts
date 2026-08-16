@@ -15,13 +15,36 @@ export async function GET(req: Request) {
       Math.max(1, Number(searchParams.get('limit') || 20))
     )
 
+    const search = searchParams.get('search')?.trim()
     const type = searchParams.get('type')
     const status = searchParams.get('status')
     const genre = searchParams.get('genre')
-    const sort = searchParams.get('sort') || 'latest'
 
     const where: any = {
       published: true,
+    }
+
+    if (search) {
+      where.OR = [
+        {
+          title: {
+            contains: search,
+            mode: 'insensitive',
+          },
+        },
+        {
+          alternativeTitle: {
+            contains: search,
+            mode: 'insensitive',
+          },
+        },
+        {
+          author: {
+            contains: search,
+            mode: 'insensitive',
+          },
+        },
+      ]
     }
 
     if (type) {
@@ -42,28 +65,9 @@ export async function GET(req: Request) {
       }
     }
 
-    let orderBy: any = {
-      createdAt: 'desc',
-    }
-
-    if (sort === 'popular') {
-      orderBy = {
-        views: 'desc',
-      }
-    }
-
-    if (sort === 'rating') {
-      orderBy = {
-        rating: 'desc',
-      }
-    }
-
-    const [series, total] = await prisma.$transaction([
+    const [series, total] = await Promise.all([
       prisma.series.findMany({
         where,
-        orderBy,
-        skip: (page - 1) * limit,
-        take: limit,
         include: {
           genres: {
             include: {
@@ -87,6 +91,11 @@ export async function GET(req: Request) {
             },
           },
         },
+        orderBy: {
+          updatedAt: 'desc',
+        },
+        skip: (page - 1) * limit,
+        take: limit,
       }),
 
       prisma.series.count({
@@ -105,16 +114,14 @@ export async function GET(req: Request) {
       },
     })
   } catch (error) {
-    console.error('SERIES_LIST_ERROR:', error)
+    console.error('SERIES_GET_ERROR:', error)
 
     return NextResponse.json(
       {
         success: false,
         message: 'Gagal mengambil daftar series',
       },
-      {
-        status: 500,
-      }
+      { status: 500 }
     )
   }
 }
