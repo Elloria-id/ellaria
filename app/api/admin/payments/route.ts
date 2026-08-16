@@ -1,116 +1,69 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/db/prisma'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth'
-import { PaymentService } from '@/lib/payments/payment.service'
-import { z } from 'zod'
+import { prisma } from '@/lib/db/prisma'
+import { Role } from '@prisma/client'
 
-export async function GET(req: Request) {
+async function requireAdmin() {
+  const session = await getServerSession(authOptions)
+
+  if (!session?.user?.id) return false
+
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: {
+      role: true,
+      isBanned: true,
+    },
+  })
+
+  return !!(
+    user &&
+    !user.isBanned &&
+    [Role.ADMIN, Role.FOUNDER].includes(user.role)
+  )
+}
+
+export async function GET() {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session || !['ADMIN', 'FOUNDER'].includes(session.user.role)) {
+    if (!(await requireAdmin())) {
       return NextResponse.json(
-        { success: false, message: 'Unauthorized' },
-        { status: 401 }
+        {
+          success: false,
+          message: 'Tidak memiliki akses',
+        },
+        { status: 403 }
       )
     }
 
-    const url = new URL(req.url)
-    const status = url.searchParams.get('status') || 'PENDING'
-    const provider = url.searchParams.get('provider')
-    const page = Number(url.searchParams.get('page')) || 1
-    const limit = Number(url.searchParams.get('limit')) || 20
-
-    const where: any = { status }
-    if (provider) where.provider = provider
-
-    const [payments, total] = await Promise.all([
-      prisma.payment.findMany({
-        where,
-        include: {
-          user: {
-            select: {
-              id: true,
-              username: true,
-              avatar: true,
-            },
+    const payments = await prisma.payment.findMany({
+      orderBy: {
+        createdAt: 'desc',
+      },
+      take: 100,
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            email: true,
           },
-          package: true,
-        },
-        orderBy: { createdAt: 'desc' },
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
-      prisma.payment.count({ where }),
-    ])
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        payments,
-        pagination: {
-          page,
-          limit,
-          total,
-          pages: Math.ceil(total / limit),
         },
       },
     })
-  } catch (error) {
-    return NextResponse.json(
-      { success: false, message: 'Internal server error' },
-      { status: 500 }
-    )
-  }
-}
-
-const reviewSchema = z.object({
-  paymentId: z.string(),
-  action: z.enum(['APPROVE', 'REJECT']),
-  note: z.string().optional(),
-})
-
-export async function POST(req: Request) {
-  try {
-    const session = await getServerSession(authOptions)
-    if (!session || !['ADMIN', 'FOUNDER'].includes(session.user.role)) {
-      return NextResponse.json(
-        { success: false, message: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
-
-    const body = await req.json()
-    const validated = reviewSchema.parse(body)
-
-    let result
-    if (validated.action === 'APPROVE') {
-      result = await PaymentService.manualApprove(
-        validated.paymentId,
-        session.user.id,
-        validated.note
-      )
-    } else {
-      result = await PaymentService.manualReject(
-        validated.paymentId,
-        session.user.id,
-        validated.note
-      )
-    }
 
     return NextResponse.json({
       success: true,
-      data: result,
+      data: payments,
     })
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { success: false, message: 'Input tidak valid' },
-        { status: 400 }
-      )
-    }
+    console.error('ADMIN PAYMENTS GET ERROR:', error)
+
     return NextResponse.json(
-      { success: false, message: (error as Error).message },
+      {
+        success: false,
+        message: 'Gagal mengambil pembayaran',
+      },
       { status: 500 }
     )
   }
