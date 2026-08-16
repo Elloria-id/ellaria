@@ -1,59 +1,69 @@
-'use client'
+type TrendingItem = {
+  id: string
+  title: string
+  slug: string
+  cover?: string | null
+  type?: string
+}
 
-import { useState, useEffect } from 'react'
-import Link from 'next/link'
-
-export function Trending() {
-  const [series, setSeries] = useState<any[]>([])
-
-  useEffect(() => {
-    fetch('/api/series?limit=10&sort=views')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success) {
-          setSeries(data.data.series)
-        }
-      })
-  }, [])
-
-  if (series.length === 0) return null
-
+export default function Trending({
+  items = [],
+}: {
+  items?: TrendingItem[]
+}) {
   return (
-    <div className="mb-8">
-      <h2 className="text-xl font-bold mb-4">Trending</h2>
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        {series.map((item) => (
-          <Link
-            key={item.id}
-            href={`/series/${item.slug}`}
-            className="group"
-          >
-            <div className="relative aspect-[3/4] overflow-hidden rounded-lg">
-              <img
-                src={item.cover || '/images/placeholder-cover.jpg'}
-                alt={item.title}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-              />
-              {item.isPremium && (
-                <div className="absolute top-2 right-2 px-2 py-1 bg-primary/80 text-white text-xs rounded">
-                  Premium
+    <section className="px-4 py-5">
+      <div className="mx-auto max-w-7xl">
+
+        <h2 className="mb-4 text-lg font-bold">
+          Trending
+        </h2>
+
+        {items.length === 0 ? (
+          <div className="rounded-xl border border-white/10 bg-white/[0.03] p-6 text-center text-sm text-gray-500">
+            Belum ada data trending.
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-5">
+
+            {items.map((item, index) => (
+              <a
+                key={item.id}
+                href={`/series/${item.slug}`}
+                className="group"
+              >
+                <div className="relative aspect-video overflow-hidden rounded-xl bg-white/5">
+
+                  {item.cover && (
+                    <img
+                      src={item.cover}
+                      alt={item.title}
+                      className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                    />
+                  )}
+
+                  <span className="absolute left-2 top-2 rounded-lg bg-black/70 px-2 py-1 text-xs font-bold text-[#42A5F5]">
+                    #{index + 1}
+                  </span>
+
                 </div>
-              )}
-              {item.is18Plus && (
-                <div className="absolute top-2 left-2 px-2 py-1 bg-red-500/80 text-white text-xs rounded">
-                  18+
-                </div>
-              )}
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3">
-                <h3 className="text-sm font-medium truncate">{item.title}</h3>
-                <p className="text-xs text-gray-400">
-                  {item.chapters?.[0] ? `Chapter ${item.chapters[0].chapterNumber}` : 'New'}
+
+                <p className="mt-2 line-clamp-2 text-sm font-semibold">
+                  {item.title}
                 </p>
-              </div>
-            </div>
-          </Link>
-        ))}
+
+                {item.type && (
+                  <p className="mt-1 text-[10px] text-gray-500">
+                    {item.type}
+                  </p>
+                )}
+              </a>
+            ))}
+
+          </div>
+        )}
+
       </div>
-    </div>
+    </section>
   )
 }
