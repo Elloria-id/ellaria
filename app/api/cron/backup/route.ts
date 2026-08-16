@@ -5,32 +5,21 @@ export async function GET(req: Request) {
   try {
     const authHeader = req.headers.get('authorization')
     if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      return NextResponse.json(
-        { success: false, message: 'Unauthorized' },
-        { status: 401 }
-      )
+      return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 })
     }
 
     // Get backup configuration
-    const settings = await prisma.siteSetting.findUnique({
-      where: { key: 'backup_config' },
-    })
+    const settings = await prisma.siteSetting.findUnique({ where: { key: 'backup_config' } })
 
-    const backupConfig = settings?.value as {
-      enabled: boolean
-      frequency: 'daily' | 'weekly'
-      retentionDays: number
-    } || {
-      enabled: true,
-      frequency: 'daily',
-      retentionDays: 30,
-    }
+    const backupConfig =
+      (settings?.value as { enabled: boolean; frequency: 'daily' | 'weekly'; retentionDays: number }) || {
+        enabled: true,
+        frequency: 'daily',
+        retentionDays: 30,
+      }
 
     if (!backupConfig.enabled) {
-      return NextResponse.json({
-        success: true,
-        message: 'Backup disabled',
-      })
+      return NextResponse.json({ success: true, message: 'Backup disabled' })
     }
 
     // Generate backup metadata
@@ -50,20 +39,15 @@ export async function GET(req: Request) {
     // Store backup metadata in database (optional)
     await prisma.backupRecord.create({
       data: {
-        timestamp: new Date(),
-        metadata: backup,
-        status: 'completed',
+        key: `backup-${Date.now()}`,
+        path: '/backups',
+        meta: backup,
       },
     })
 
-    return NextResponse.json({
-      success: true,
-      data: backup,
-    })
+    return NextResponse.json({ success: true, data: backup })
   } catch (error) {
-    return NextResponse.json(
-      { success: false, message: 'Internal server error' },
-      { status: 500 }
-    )
+    console.error('BACKUP ERROR:', error)
+    return NextResponse.json({ success: false, message: 'Internal server error' }, { status: 500 })
   }
 }
