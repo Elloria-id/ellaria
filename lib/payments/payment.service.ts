@@ -1,11 +1,12 @@
 import { prisma } from '@/lib/db/prisma'
 import { WalletService } from '@/lib/coins/wallet.service'
-import { PaymentProvider } from './PaymentProvider'
+import type { PaymentProvider, CreatePaymentParams, PaymentResult } from './PaymentProvider'
 import { ManualQRISProvider } from './ManualQRIS'
 import { MidtransProvider } from './Midtrans'
 import { XenditProvider } from './Xendit'
 import { TripayProvider } from './Tripay'
 import { DuitkuProvider } from './Duitku'
+import type { Prisma, PaymentStatus as PrismaPaymentStatus } from '@prisma/client'
 
 export class PaymentService {
   private static provider: PaymentProvider | null = null
@@ -37,10 +38,11 @@ export class PaymentService {
     return this.provider
   }
 
+  // Create payment - adapt to provider contract
   static async createPayment(
     userId: string,
     packageId: string,
-    metadata?: any
+    metadata?: Record<string, unknown>
   ) {
     const provider = this.getProvider()
     const packageData = await prisma.coinPackage.findUnique({
@@ -51,7 +53,7 @@ export class PaymentService {
       throw new Error('Paket tidak ditemukan')
     }
 
-    // Create payment record
+    // create local payment record first
     const payment = await prisma.payment.create({
       data: {
         userId,
@@ -62,87 +64,121 @@ export class PaymentService {
       },
     })
 
-    // Create payment with provider
-    const providerResult = await provider.createPayment(
+    // prepare canonical params for provider
+    const merchantRef = `ELLARIA-${Date.now()}-${userId.slice(0, 6)}`
+    const params: CreatePaymentParams = {
+      merchantRef,
+      amount: packageData.price,
+      method: (metadata?.method as string) || undefined,
+      customerName: (metadata?.username as string) || undefined,
+      customerEmail: (metadata?.email as string) || undefined,
+      customerPhone: (metadata?.phone as string) || undefined,
+      itemName: packageData.name,
+      callbackUrl: (metadata?.callbackUrl as string) || process.env.PAYMENT_CALLBACK_URL || undefined,
+      returnUrl: (metadata?.returnUrl as string) || process.env.NEXT_PUBLIC_APP_URL || undefined,
+      metadata,
       userId,
       packageId,
-      packageData.price,
-      {
-        ...metadata,
-        description: packageData.name,
-      }
-    )
+    }
 
-    // Update payment with provider reference
+    const providerResult = await provider.createPayment(params)
+
+    // map provider result to DB fields (use providerRef per Prisma schema)
+    const providerRef =
+      (providerResult.providerReference as string | undefined) ||
+      (providerResult.reference as string | undefined) ||
+      (providerResult.merchantRef as string | undefined) ||
+      merchantRef
+
     await prisma.payment.update({
       where: { id: payment.id },
       data: {
-        providerReference: providerResult.providerReference,
-        paymentUrl: providerResult.paymentUrl,
-        qrImage: providerResult.qrImage,
+        providerRef,
+        paymentUrl: (providerResult.paymentUrl as string | undefined) || null,
+        qrImage: (providerResult.qrImage as string | undefined) || null,
+        expiresAt:
+          providerResult.expiresAt
+            ? typeof providerResult.expiresAt === 'string'
+              ? new Date(providerResult.expiresAt)
+              : (providerResult.expiresAt as Date)
+            : undefined,
       },
     })
 
     return {
       ...payment,
       ...providerResult,
+      providerRef,
     }
   }
 
+  // Process incoming webhook payload; provider is string name to route logic for provider-specific fields
   static async processWebhook(
     provider: string,
-    body: any,
-    signature: string
+    body: unknown,
+    signature?: string
   ): Promise<{ success: boolean; message: string }> {
     const providerInstance = this.getProvider()
 
-    // Verify signature
-    if (!providerInstance.verifyWebhookSignature(body, signature)) {
+    // Verify signature using available helper
+    const isValidWebhook =
+      (typeof providerInstance.validateCallback === 'function' && providerInstance.validateCallback(body, signature)) ||
+      (typeof providerInstance.verifyWebhookSignature === 'function' && providerInstance.verifyWebhookSignature(body, signature))
+
+    if (!isValidWebhook) {
       throw new Error('Invalid webhook signature')
     }
 
-    // Extract provider reference from body (depends on provider)
+    // Extract providerReference and normalize status according to provider-specific payload
     let providerReference = ''
-    let status = ''
+    let status: PrismaPaymentStatus | 'PENDING' = 'PENDING'
 
+    // provider-specific extraction
+    const payloadAny = body as any
     switch (provider) {
       case 'midtrans':
-        providerReference = body.order_id
-        status = body.transaction_status === 'settlement' || body.transaction_status === 'capture'
-          ? 'PAID'
-          : body.transaction_status === 'expire'
-          ? 'EXPIRED'
-          : 'PENDING'
+        providerReference = payloadAny.order_id || payloadAny.transaction_id || ''
+        status =
+          payloadAny.transaction_status === 'settlement' || payloadAny.transaction_status === 'capture'
+            ? 'PAID'
+            : payloadAny.transaction_status === 'expire'
+            ? 'EXPIRED'
+            : 'PENDING'
         break
       case 'xendit':
-        providerReference = body.id
-        status = body.status === 'PAID' || body.status === 'SETTLED'
-          ? 'PAID'
-          : body.status === 'EXPIRED'
-          ? 'EXPIRED'
-          : 'PENDING'
+        providerReference = payloadAny.id || ''
+        status =
+          payloadAny.status === 'PAID' || payloadAny.status === 'SETTLED'
+            ? 'PAID'
+            : payloadAny.status === 'EXPIRED'
+            ? 'EXPIRED'
+            : 'PENDING'
         break
       case 'tripay':
-        providerReference = body.reference
-        status = body.status === 'PAID' || body.status === 'SETTLED'
-          ? 'PAID'
-          : body.status === 'EXPIRED'
-          ? 'EXPIRED'
-          : 'PENDING'
+        providerReference = payloadAny.reference || ''
+        status =
+          payloadAny.status === 'PAID' || payloadAny.status === 'SETTLED'
+            ? 'PAID'
+            : payloadAny.status === 'EXPIRED'
+            ? 'EXPIRED'
+            : 'PENDING'
         break
       case 'duitku':
-        providerReference = body.merchantOrderId
-        status = body.statusCode === '00'
-          ? 'PAID'
-          : body.statusCode === '02'
-          ? 'EXPIRED'
-          : 'PENDING'
+        providerReference = payloadAny.merchantOrderId || payloadAny.Reference || ''
+        status =
+          payloadAny.statusCode === '00'
+            ? 'PAID'
+            : payloadAny.statusCode === '02'
+            ? 'EXPIRED'
+            : 'PENDING'
         break
       default:
-        throw new Error('Unsupported provider')
+        // fallback: try to read common fields
+        providerReference = (payloadAny.providerReference as string) || (payloadAny.reference as string) || ''
+        status = (payloadAny.status as PrismaPaymentStatus) || 'PENDING'
     }
 
-    // Process payment if PAID (idempotent)
+    // Process payment if PAID, idempotent
     if (status === 'PAID') {
       const result = await this.processPaymentInternal(providerReference, provider)
       return {
@@ -162,10 +198,10 @@ export class PaymentService {
     provider: string
   ): Promise<{ success: boolean; message: string }> {
     return await prisma.$transaction(async (tx) => {
-      // Find payment
+      // Find payment by providerRef (Prisma schema uses providerRef)
       const payment = await tx.payment.findFirst({
         where: {
-          providerReference,
+          providerRef: providerReference,
           provider,
         },
         include: {
@@ -202,9 +238,10 @@ export class PaymentService {
         },
       })
 
-      // Add coins to wallet
+      // Add coins to wallet using WalletService helper that runs within transaction
+      // The WalletService.addCoinsInTransaction must accept Prisma.TransactionClient as first param
       await WalletService.addCoinsInTransaction(
-        tx,
+        tx as Prisma.TransactionClient,
         payment.userId,
         payment.package.coins,
         'TOPUP',
@@ -249,12 +286,21 @@ export class PaymentService {
     }
 
     // If not manual and still PENDING, verify with provider
-    if (payment.provider !== 'manual' && payment.status === 'PENDING' && payment.providerReference) {
+    if (payment.provider !== 'manual' && payment.status === 'PENDING' && payment.providerRef) {
       const provider = this.getProvider()
       try {
-        const result = await provider.verifyPayment(payment.providerReference)
-        if (result.status === 'PAID') {
-          await this.processPaymentInternal(payment.providerReference, payment.provider)
+        let result:
+          | { status: string; metadata?: unknown }
+          | undefined = undefined
+
+        if (typeof provider.verifyPayment === 'function') {
+          result = await provider.verifyPayment(payment.providerRef)
+        } else if (typeof provider.getPaymentStatus === 'function') {
+          result = await provider.getPaymentStatus(payment.providerRef)
+        }
+
+        if (result?.status === 'PAID') {
+          await this.processPaymentInternal(payment.providerRef, payment.provider)
           // Re-fetch payment
           const updated = await prisma.payment.findUnique({
             where: { id: paymentId },
@@ -312,7 +358,7 @@ export class PaymentService {
       })
 
       await WalletService.addCoinsInTransaction(
-        tx,
+        tx as Prisma.TransactionClient,
         payment.userId,
         payment.package.coins,
         'TOPUP',
