@@ -1,83 +1,100 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
-import { z } from 'zod'
-
-const searchSchema = z.object({
-  q: z.string().default(''),
-  type: z.enum(['series', 'user', 'translator', 'community']).default('series'),
-  page: z.coerce.number().default(1),
-  limit: z.coerce.number().default(20),
-  genre: z.string().optional(),
-  status: z.string().optional(),
-  contentType: z.enum(['MANGA', 'MANHWA', 'MANHUA', 'NOVEL', 'ONE_SHOT']).optional(),
-})
 
 export async function GET(req: Request) {
   try {
-    const url = new URL(req.url)
-    const params = Object.fromEntries(url.searchParams)
-    const validated = searchSchema.parse(params)
+    const { searchParams } = new URL(req.url)
 
-    const { q, type, page, limit, genre, status, contentType } = validated
-    const skip = (page - 1) * limit
+    const q = searchParams.get('q')?.trim() || ''
+    const category = searchParams.get('category') || 'all'
 
-    let data: any[] = []
-    let total = 0
-    let searchType = type
-
-    if (type === 'series') {
-      const where: any = { published: true }
-      if (q) {
-        where.OR = [
-          { title: { contains: q, mode: 'insensitive' } },
-          { alternativeTitle: { contains: q, mode: 'insensitive' } },
-          { author: { contains: q, mode: 'insensitive' } },
-          { artist: { contains: q, mode: 'insensitive' } },
-        ]
-      }
-      if (genre) {
-        where.genres = {
-          some: { genre: { slug: genre } },
-        }
-      }
-      if (status) {
-        where.status = status
-      }
-      if (contentType) {
-        where.type = contentType
-      }
-
-      const result = await prisma.series.findMany({
-        where,
-        skip,
-        take: limit,
-        include: {
-          genres: { include: { genre: true } },
-          chapters: {
-            where: { isPublished: true },
-            orderBy: { chapterNumber: 'desc' },
-            take: 1,
-          },
-          _count: {
-            select: { chapters: true, bookmarks: true },
-          },
+    if (!q) {
+      return NextResponse.json({
+        success: true,
+        data: {
+          series: [],
+          users: [],
+          genres: [],
         },
-        orderBy: { views: 'desc' },
       })
-      data = result
-      total = await prisma.series.count({ where })
-    } else if (type === 'user') {
-      const where: any = {}
-      if (q) {
-        where.OR = [
-          { username: { contains: q, mode: 'insensitive' } },
-          { email: { contains: q, mode: 'insensitive' } },
-        ]
-      }
-      const result = await prisma.user.findMany({
-        where,
-        skip,
-        take: limit,
+    }
+
+    const result: any = {
+      series: [],
+      users: [],
+      genres: [],
+    }
+
+    if (category === 'all' || category === 'series') {
+      result.series = await prisma.series.findMany({
+        where: {
+          published: true,
+          OR: [
+            {
+              title: {
+                contains: q,
+                mode: 'insensitive',
+              },
+            },
+            {
+              alternativeTitle: {
+                contains: q,
+                mode: 'insensitive',
+              },
+            },
+            {
+              author: {
+                contains: q,
+                mode: 'insensitive',
+              },
+            },
+            {
+              artist: {
+                contains: q,
+                mode: 'insensitive',
+              },
+            },
+          ],
+        },
+        take: 20,
+        orderBy: {
+          views: 'desc',
+        },
+        select: {
+          id: true,
+          title: true,
+          slug: true,
+          alternativeTitle: true,
+          cover: true,
+          type: true,
+          status: true,
+          label: true,
+          rating: true,
+          views: true,
+        },
+      })
+    }
+
+    if (category === 'all' || category === 'user') {
+      result.users = await prisma.user.findMany({
+        where: {
+          isBanned: false,
+          OR: [
+            {
+              username: {
+                contains: q,
+                mode: 'insensitive',
+              },
+            },
+            {
+              bio: {
+                contains: q,
+                mode: 'insensitive',
+              },
+            },
+          ],
+        },
+        take: 20,
         select: {
           id: true,
           username: true,
@@ -85,83 +102,38 @@ export async function GET(req: Request) {
           bio: true,
           role: true,
           level: true,
-          exp: true,
-          createdAt: true,
         },
-        orderBy: { level: 'desc' },
       })
-      data = result
-      total = await prisma.user.count({ where })
-    } else if (type === 'translator') {
-      const where: any = {
-        role: 'TRANSLATOR',
-      }
-      if (q) {
-        where.OR = [{ username: { contains: q, mode: 'insensitive' } }]
-      }
-      const result = await prisma.user.findMany({
-        where,
-        skip,
-        take: limit,
-        select: {
-          id: true,
-          username: true,
-          avatar: true,
-          bio: true,
-          role: true,
-          level: true,
-          translatorProfile: true,
-        },
-        orderBy: { level: 'desc' },
-      })
-      data = result
-      total = await prisma.user.count({ where })
-    } else if (type === 'community') {
-      const where: any = { isActive: true }
-      if (q) {
-        where.OR = [
-          { name: { contains: q, mode: 'insensitive' } },
-          { description: { contains: q, mode: 'insensitive' } },
-        ]
-      }
-      const result = await prisma.community.findMany({
-        where,
-        skip,
-        take: limit,
-        include: {
-          _count: {
-            select: { members: true, messages: true },
+    }
+
+    if (category === 'all' || category === 'genre') {
+      result.genres = await prisma.genre.findMany({
+        where: {
+          isActive: true,
+          name: {
+            contains: q,
+            mode: 'insensitive',
           },
         },
-        orderBy: { createdAt: 'desc' },
+        take: 20,
       })
-      data = result
-      total = await prisma.community.count({ where })
     }
 
     return NextResponse.json({
       success: true,
-      data: {
-        results: data,
-        type: searchType,
-        pagination: {
-          page,
-          limit,
-          total,
-          pages: Math.ceil(total / limit),
-        },
-      },
+      data: result,
     })
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { success: false, message: 'Parameter tidak valid' },
-        { status: 400 }
-      )
-    }
+    console.error('SEARCH_ERROR:', error)
+
     return NextResponse.json(
-      { success: false, message: 'Internal server error' },
-      { status: 500 }
+      {
+        success: false,
+        message: 'Pencarian gagal',
+      },
+      {
+        status: 500,
+      }
     )
   }
 }
