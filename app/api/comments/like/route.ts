@@ -1,90 +1,50 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/db/prisma'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth'
+import { prisma } from '@/lib/db/prisma'
 import { z } from 'zod'
 
-const likeSchema = z.object({
-  commentId: z.string(),
+const schema = z.object({
+  commentId: z.string().min(1),
 })
 
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session) {
+
+    if (!session?.user?.id) {
       return NextResponse.json(
-        { success: false, message: 'Unauthorized' },
+        {
+          success: false,
+          message: 'Silakan login terlebih dahulu',
+        },
         { status: 401 }
       )
     }
 
     const body = await req.json()
-    const validated = likeSchema.parse(body)
+    const { commentId } = schema.parse(body)
 
     const comment = await prisma.comment.findUnique({
-      where: { id: validated.commentId },
+      where: {
+        id: commentId,
+      },
+      select: {
+        id: true,
+      },
     })
 
     if (!comment) {
       return NextResponse.json(
-        { success: false, message: 'Komentar tidak ditemukan' },
+        {
+          success: false,
+          message: 'Komentar tidak ditemukan',
+        },
         { status: 404 }
       )
     }
 
-    const like = await prisma.commentLike.upsert({
-      where: {
-        userId_commentId: {
-          userId: session.user.id,
-          commentId: validated.commentId,
-        },
-      },
-      update: {},
-      create: {
-        userId: session.user.id,
-        commentId: validated.commentId,
-      },
-    })
-
-    return NextResponse.json({
-      success: true,
-      data: like,
-    })
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { success: false, message: 'Input tidak valid' },
-        { status: 400 }
-      )
-    }
-    return NextResponse.json(
-      { success: false, message: 'Internal server error' },
-      { status: 500 }
-    )
-  }
-}
-
-export async function DELETE(req: Request) {
-  try {
-    const session = await getServerSession(authOptions)
-    if (!session) {
-      return NextResponse.json(
-        { success: false, message: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
-
-    const url = new URL(req.url)
-    const commentId = url.searchParams.get('commentId')
-
-    if (!commentId) {
-      return NextResponse.json(
-        { success: false, message: 'commentId diperlukan' },
-        { status: 400 }
-      )
-    }
-
-    await prisma.commentLike.delete({
+    const existingLike = await prisma.commentLike.findUnique({
       where: {
         userId_commentId: {
           userId: session.user.id,
@@ -93,13 +53,62 @@ export async function DELETE(req: Request) {
       },
     })
 
+    if (existingLike) {
+      await prisma.commentLike.delete({
+        where: {
+          id: existingLike.id,
+        },
+      })
+
+      const count = await prisma.commentLike.count({
+        where: {
+          commentId,
+        },
+      })
+
+      return NextResponse.json({
+        success: true,
+        liked: false,
+        likes: count,
+      })
+    }
+
+    await prisma.commentLike.create({
+      data: {
+        userId: session.user.id,
+        commentId,
+      },
+    })
+
+    const count = await prisma.commentLike.count({
+      where: {
+        commentId,
+      },
+    })
+
     return NextResponse.json({
       success: true,
-      message: 'Like dihapus',
+      liked: true,
+      likes: count,
     })
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Data tidak valid',
+        },
+        { status: 400 }
+      )
+    }
+
+    console.error('COMMENT LIKE ERROR:', error)
+
     return NextResponse.json(
-      { success: false, message: 'Internal server error' },
+      {
+        success: false,
+        message: 'Gagal memproses like',
+      },
       { status: 500 }
     )
   }
