@@ -3,53 +3,72 @@ import { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import { prisma } from '@/lib/db/prisma'
 import bcrypt from 'bcryptjs'
-import { Role } from '@prisma/client'
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
+
   session: {
     strategy: 'jwt',
   },
+
   pages: {
     signIn: '/login',
     error: '/login',
   },
+
   providers: [
     CredentialsProvider({
-      name: 'credentials',
+      name: 'Credentials',
+
       credentials: {
-        email: { label: 'Email', type: 'email' },
-        password: { label: 'Password', type: 'password' },
+        email: {
+          label: 'Email',
+          type: 'email',
+        },
+        password: {
+          label: 'Password',
+          type: 'password',
+        },
       },
+
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          throw new Error('Email dan password diperlukan')
+          return null
         }
+
+        const email = credentials.email.toLowerCase().trim()
 
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
+          where: {
+            email,
+          },
         })
 
-        if (!user || !user.passwordHash) {
-          throw new Error('Email atau password salah')
+        if (!user) {
+          return null
         }
 
-        const isValid = await bcrypt.compare(
+        if (user.isBanned) {
+          throw new Error('ACCOUNT_BANNED')
+        }
+
+        if (!user.passwordHash) {
+          return null
+        }
+
+        const validPassword = await bcrypt.compare(
           credentials.password,
           user.passwordHash
         )
 
-        if (!isValid) {
-          throw new Error('Email atau password salah')
-        }
-
-        if (user.isBanned) {
-          throw new Error('Akun Anda telah diblokir')
+        if (!validPassword) {
+          return null
         }
 
         return {
           id: user.id,
           email: user.email,
+          name: user.username,
           username: user.username,
           role: user.role,
           avatar: user.avatar,
@@ -61,32 +80,41 @@ export const authOptions: NextAuthOptions = {
       },
     }),
   ],
+
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id
-        token.role = user.role
         token.username = user.username
+        token.role = user.role
         token.avatar = user.avatar
         token.coins = user.coins
         token.exp = user.exp
         token.level = user.level
         token.isBanned = user.isBanned
       }
+
       return token
     },
+
     async session({ session, token }) {
-  if (session.user) {
-    session.user.id = token.id as string
-    session.user.role = token.role as Role
-    session.user.username = token.username as string
-    session.user.avatar = token.avatar as string
-    session.user.coins = token.coins as number
-    session.user.exp = token.exp as number
-    session.user.level = token.level as number
-    session.user.isBanned = token.isBanned as boolean
-  }
-  return session
-}
+      if (session.user) {
+        session.user.id = token.id as string
+        session.user.name = token.username as string
+        session.user.username = token.username as string
+        session.user.role = token.role as string
+        session.user.avatar = token.avatar as string | null
+        session.user.coins = token.coins as number
+        session.user.exp = token.exp as number
+        session.user.level = token.level as number
+        session.user.isBanned = token.isBanned as boolean
+      }
+
+      return session
+    },
+  },
+
   secret: process.env.NEXTAUTH_SECRET,
+
+  debug: process.env.NODE_ENV === 'development',
 }
