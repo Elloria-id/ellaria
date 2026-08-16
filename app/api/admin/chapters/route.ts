@@ -1,75 +1,94 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/db/prisma'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth'
-import { z } from 'zod'
+import { prisma } from '@/lib/db/prisma'
+import { Role } from '@prisma/client'
 
-const chapterSchema = z.object({
-  seriesId: z.string(),
-  chapterNumber: z.number(),
-  title: z.string().optional(),
-  contentType: z.enum(['IMAGE', 'NOVEL']).default('IMAGE'),
-  wordCount: z.number().optional(),
-  coinPrice: z.number().min(0).default(1),
-  isPremium: z.boolean().default(false),
-  isLocked: z.boolean().default(false),
-  waitEnabled: z.boolean().default(false),
-  waitSeconds: z.number().min(0).default(6),
-  isPublished: z.boolean().default(true),
-})
+async function requireAdmin() {
+  const session = await getServerSession(authOptions)
+
+  if (!session?.user?.id) return false
+
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: {
+      role: true,
+      isBanned: true,
+    },
+  })
+
+  return !!(
+    user &&
+    !user.isBanned &&
+    [Role.ADMIN, Role.FOUNDER].includes(user.role)
+  )
+}
 
 export async function GET(req: Request) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session || !['ADMIN', 'FOUNDER'].includes(session.user.role)) {
+    if (!(await requireAdmin())) {
       return NextResponse.json(
-        { success: false, message: 'Unauthorized' },
-        { status: 401 }
+        { success: false, message: 'Tidak memiliki akses' },
+        { status: 403 }
       )
     }
 
-    const url = new URL(req.url)
-    const seriesId = url.searchParams.get('seriesId')
-    const page = Number(url.searchParams.get('page')) || 1
-    const limit = Number(url.searchParams.get('limit')) || 20
+    const { searchParams } = new URL(req.url)
 
-    if (!seriesId) {
-      return NextResponse.json(
-        { success: false, message: 'seriesId diperlukan' },
-        { status: 400 }
-      )
+    const seriesId = searchParams.get('seriesId') || ''
+    const search = searchParams.get('search')?.trim() || ''
+
+    const where: any = {}
+
+    if (seriesId) {
+      where.seriesId = seriesId
     }
 
-    const [chapters, total] = await Promise.all([
-      prisma.chapter.findMany({
-        where: { seriesId },
-        skip: (page - 1) * limit,
-        take: limit,
-        include: {
-          _count: {
-            select: { images: true },
+    if (search) {
+      where.OR = [
+        {
+          title: {
+            contains: search,
+            mode: 'insensitive',
           },
         },
-        orderBy: { chapterNumber: 'desc' },
-      }),
-      prisma.chapter.count({ where: { seriesId } }),
-    ])
+        {
+          slug: {
+            contains: search,
+            mode: 'insensitive',
+          },
+        },
+      ]
+    }
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        chapters,
-        pagination: {
-          page,
-          limit,
-          total,
-          pages: Math.ceil(total / limit),
+    const chapters = await prisma.chapter.findMany({
+      where,
+      orderBy: {
+        number: 'asc',
+      },
+      include: {
+        series: {
+          select: {
+            id: true,
+            title: true,
+            slug: true,
+          },
         },
       },
     })
+
+    return NextResponse.json({
+      success: true,
+      data: chapters,
+    })
   } catch (error) {
+    console.error('ADMIN CHAPTERS GET ERROR:', error)
+
     return NextResponse.json(
-      { success: false, message: 'Internal server error' },
+      {
+        success: false,
+        message: 'Gagal mengambil chapter',
+      },
       { status: 500 }
     )
   }
@@ -77,46 +96,74 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session || !['ADMIN', 'FOUNDER'].includes(session.user.role)) {
+    if (!(await requireAdmin())) {
       return NextResponse.json(
-        { success: false, message: 'Unauthorized' },
-        { status: 401 }
+        { success: false, message: 'Tidak memiliki akses' },
+        { status: 403 }
       )
     }
 
     const body = await req.json()
-    const validated = chapterSchema.parse(body)
 
-    const chapter = await prisma.chapter.create({
-      data: {
-        seriesId: validated.seriesId,
-        chapterNumber: validated.chapterNumber,
-        title: validated.title,
-        contentType: validated.contentType,
-        wordCount: validated.wordCount,
-        coinPrice: validated.coinPrice,
-        isPremium: validated.isPremium,
-        isLocked: validated.isLocked,
-        waitEnabled: validated.waitEnabled,
-        waitSeconds: validated.waitSeconds,
-        isPublished: validated.isPublished,
-      },
-    })
+    const seriesId = String(body.seriesId || '')
+    const number = Number(body.number)
+    const title = String(body.title || '').trim()
+    const slug = String(body.slug || '').trim()
+    const coinPrice = Math.max(
+      Number(body.coinPrice || 0),
+      0
+    )
 
-    return NextResponse.json({
-      success: true,
-      data: chapter,
-    })
-  } catch (error) {
-    if (error instanceof z.ZodError) {
+    if (!seriesId || !title || !slug || !Number.isFinite(number)) {
       return NextResponse.json(
-        { success: false, message: 'Input tidak valid' },
+        {
+          success: false,
+          message: 'Series, nomor, title, dan slug wajib diisi',
+        },
         { status: 400 }
       )
     }
+
+    const series = await prisma.series.findUnique({
+      where: { id: seriesId },
+    })
+
+    if (!series) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Series tidak ditemukan',
+        },
+        { status: 404 }
+      )
+    }
+
+    const chapter = await prisma.chapter.create({
+      data: {
+        seriesId,
+        number,
+        title,
+        slug,
+        coinPrice,
+      },
+    })
+
     return NextResponse.json(
-      { success: false, message: 'Internal server error' },
+      {
+        success: true,
+        message: 'Chapter berhasil dibuat',
+        data: chapter,
+      },
+      { status: 201 }
+    )
+  } catch (error) {
+    console.error('ADMIN CHAPTERS POST ERROR:', error)
+
+    return NextResponse.json(
+      {
+        success: false,
+        message: 'Gagal membuat chapter',
+      },
       { status: 500 }
     )
   }
