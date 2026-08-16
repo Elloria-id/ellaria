@@ -18,7 +18,7 @@ export const authOptions: NextAuthOptions = {
 
   providers: [
     CredentialsProvider({
-      name: 'Credentials',
+      name: 'credentials',
 
       credentials: {
         email: {
@@ -33,27 +33,25 @@ export const authOptions: NextAuthOptions = {
 
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          return null
+          throw new Error('Email dan password diperlukan')
         }
-
-        const email = credentials.email.toLowerCase().trim()
 
         const user = await prisma.user.findUnique({
           where: {
-            email,
+            email: credentials.email.toLowerCase().trim(),
           },
         })
 
         if (!user) {
-          return null
+          throw new Error('Email atau password salah')
         }
 
         if (user.isBanned) {
-          throw new Error('ACCOUNT_BANNED')
+          throw new Error('Akun Anda telah diblokir')
         }
 
         if (!user.passwordHash) {
-          return null
+          throw new Error('Akun belum memiliki password')
         }
 
         const validPassword = await bcrypt.compare(
@@ -62,13 +60,21 @@ export const authOptions: NextAuthOptions = {
         )
 
         if (!validPassword) {
-          return null
+          throw new Error('Email atau password salah')
         }
+
+        await prisma.user.update({
+          where: {
+            id: user.id,
+          },
+          data: {
+            lastActiveAt: new Date(),
+          },
+        })
 
         return {
           id: user.id,
           email: user.email,
-          name: user.username,
           username: user.username,
           role: user.role,
           avatar: user.avatar,
@@ -100,7 +106,6 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string
-        session.user.name = token.username as string
         session.user.username = token.username as string
         session.user.role = token.role as string
         session.user.avatar = token.avatar as string | null
@@ -115,6 +120,4 @@ export const authOptions: NextAuthOptions = {
   },
 
   secret: process.env.NEXTAUTH_SECRET,
-
-  debug: process.env.NODE_ENV === 'development',
 }
