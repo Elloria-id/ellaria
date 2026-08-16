@@ -171,4 +171,5 @@ const WalletService = {
   refundCoins,
 }
 
+export { WalletService }
 export default WalletService
