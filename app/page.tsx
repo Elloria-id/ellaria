@@ -14,7 +14,7 @@ async function getHomeData() {
       await Promise.all([
         prisma.banner.findMany({
           where: {
-            active: true,
+            isActive: true,
           },
           orderBy: {
             order: 'asc',
@@ -84,13 +84,13 @@ export default async function HomePage() {
       <Announcement />
 
       <Banner
-        items={data.banners.map(item => ({
-          id: item.id,
-          title: item.title,
-          image: item.image,
-          link: item.link,
-        }))}
-      />
+  items={data.banners.map(item => ({
+    id: item.id,
+    title: item.title ?? '',
+    image: item.image,
+    link: item.link ?? undefined,
+  }))}
+/>
 
       <ContinueReading />
 
