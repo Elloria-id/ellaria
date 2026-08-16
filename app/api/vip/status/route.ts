@@ -1,27 +1,61 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth'
-import { VIPService } from '@/lib/vip/vip.service'
+import { prisma } from '@/lib/db/prisma'
 
 export async function GET() {
   try {
     const session = await getServerSession(authOptions)
-    if (!session) {
+
+    if (!session?.user?.id) {
       return NextResponse.json(
-        { success: false, message: 'Unauthorized' },
+        {
+          success: false,
+          message: 'Unauthorized',
+        },
         { status: 401 }
       )
     }
 
-    const vip = await VIPService.getActiveVIP(session.user.id)
+    const vip = await prisma.userVIP.findUnique({
+      where: {
+        userId: session.user.id,
+      },
+      include: {
+        plan: true,
+      },
+    })
+
+    if (!vip) {
+      return NextResponse.json({
+        success: true,
+        active: false,
+        data: null,
+      })
+    }
+
+    const now = new Date()
+    const active = vip.expiresAt > now
 
     return NextResponse.json({
       success: true,
-      data: vip || null,
+      active,
+      data: {
+        id: vip.id,
+        plan: vip.plan,
+        startedAt: vip.startedAt,
+        expiresAt: vip.expiresAt,
+        autoRenew: vip.autoRenew,
+      },
     })
   } catch (error) {
+    console.error('GET /api/vip/status:', error)
+
     return NextResponse.json(
-      { success: false, message: 'Internal server error' },
+      {
+        success: false,
+        message: 'Gagal mengambil status VIP',
+      },
       { status: 500 }
     )
   }
