@@ -1,5 +1,5 @@
 import { PrismaAdapter } from '@auth/prisma-adapter'
-import { NextAuthOptions } from 'next-auth'
+import type { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import { prisma } from '@/lib/db/prisma'
 import bcrypt from 'bcryptjs'
@@ -90,14 +90,15 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.id = user.id
-        token.username = user.username
-        token.role = user.role
-        token.avatar = user.avatar
-        token.coins = user.coins
-        token.exp = user.exp
-        token.level = user.level
-        token.isBanned = user.isBanned
+        // user is the object returned from authorize; these properties are expected per module augmentation
+        if ('id' in user) token.id = user.id
+        if ('username' in user) token.username = user.username
+        if ('role' in user) token.role = user.role
+        if ('avatar' in user) token.avatar = user.avatar
+        if ('coins' in user) token.coins = user.coins
+        if ('exp' in user) token.exp = user.exp
+        if ('level' in user) token.level = user.level
+        if ('isBanned' in user) token.isBanned = user.isBanned
       }
 
       return token
@@ -107,7 +108,6 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         session.user.id = token.id as string
         session.user.username = token.username as string
-        // token.role is typed as import('@prisma/client').Role via augmentation
         session.user.role = token.role as import('@prisma/client').Role
         session.user.avatar = token.avatar as string | null
         session.user.coins = token.coins as number
