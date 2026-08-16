@@ -1,58 +1,116 @@
+import Announcement from '@/components/home/Announcement'
+import Banner from '@/components/home/Banner'
+import ContinueReading from '@/components/home/ContinueReading'
+import Trending from '@/components/home/Trending'
+import LatestRelease from '@/components/home/LatestRelease'
+import GenreSection from '@/components/home/GenreSection'
 import { prisma } from '@/lib/db/prisma'
-import { Banner } from '@/components/home/Banner'
-import { ContinueReading } from '@/components/home/ContinueReading'
-import { Trending } from '@/components/home/Trending'
-import { LatestRelease } from '@/components/home/LatestRelease'
-import { GenreSection } from '@/components/home/GenreSection'
-import { Announcement } from '@/components/home/Announcement'
+
+export const dynamic = 'force-dynamic'
+
+async function getHomeData() {
+  try {
+    const [banners, series, genres] =
+      await Promise.all([
+        prisma.banner.findMany({
+          where: {
+            active: true,
+          },
+          orderBy: {
+            order: 'asc',
+          },
+          take: 10,
+        }),
+
+        prisma.series.findMany({
+          orderBy: {
+            createdAt: 'desc',
+          },
+          take: 20,
+        }),
+
+        prisma.genre.findMany({
+          orderBy: {
+            name: 'asc',
+          },
+          take: 100,
+        }),
+      ])
+
+    return {
+      banners,
+      series,
+      genres,
+    }
+  } catch (error) {
+    console.error(
+      'HOME DATA ERROR:',
+      error
+    )
+
+    return {
+      banners: [],
+      series: [],
+      genres: [],
+    }
+  }
+}
 
 export default async function HomePage() {
-  const [banners, announcements] = await Promise.all([
-    prisma.banner.findMany({
-      where: { isActive: true },
-      orderBy: { order: 'asc' },
-    }),
-    prisma.announcement.findMany({
-      where: { isActive: true },
-      orderBy: { createdAt: 'desc' },
-      take: 1,
-    }),
-  ])
+  const data = await getHomeData()
+
+  const mappedSeries = data.series.map(item => ({
+    id: item.id,
+    title: item.title,
+    slug: item.slug,
+    cover:
+      'cover' in item
+        ? String(
+            (item as unknown as {
+              cover?: string
+            }).cover || ''
+          )
+        : null,
+    type: String(
+      (item as unknown as {
+        type?: string
+      }).type || ''
+    ),
+  }))
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      {/* Announcement */}
-      {announcements.length > 0 && (
-        <Announcement content={announcements[0].content} />
-      )}
+    <main className="min-h-screen bg-[#05070a] text-white">
 
-      {/* Banner */}
-      <div className="mb-8">
-        <Banner banners={banners} />
-      </div>
+      <Announcement />
 
-      {/* Continue Reading */}
+      <Banner
+        items={data.banners.map(item => ({
+          id: item.id,
+          title: item.title,
+          image: item.image,
+          link: item.link,
+        }))}
+      />
+
       <ContinueReading />
 
-      {/* Trending */}
-      <Trending />
+      <Trending items={mappedSeries.slice(0, 10)} />
 
-      {/* Latest Release */}
-      <LatestRelease />
+      <LatestRelease
+        items={mappedSeries.map(item => ({
+          ...item,
+          chapter: undefined,
+        }))}
+      />
 
-      {/* Genres */}
-      <GenreSection />
+      <GenreSection
+        genres={data.genres.map(item => ({
+          id: item.id,
+          name: item.name,
+          slug: item.slug,
+        }))}
+      />
 
-      {/* Join Community CTA */}
-      <div className="mt-12 glass-card p-8 text-center">
-        <h2 className="text-2xl font-bold mb-4">Bergabunglah dengan Komunitas ELLARIA</h2>
-        <p className="text-gray-400 mb-6">
-          Diskusikan series favorit Anda, berbagi rekomendasi, dan berteman dengan sesama pembaca.
-        </p>
-        <a href="/community" className="btn-primary inline-block">
-          Jelajahi Komunitas
-        </a>
-      </div>
-    </div>
+    </main>
   )
 }
