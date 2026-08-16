@@ -2,9 +2,9 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth'
 import { prisma } from '@/lib/db/prisma'
-import { Role } from '@prisma/client'
+import { Role, Prisma } from '@prisma/client'
 
-async function requireAdmin() {
+async function requireAdmin(): Promise<boolean> {
   const session = await getServerSession(authOptions)
 
   if (!session?.user?.id) return false
@@ -17,20 +17,13 @@ async function requireAdmin() {
     },
   })
 
-  return !!(
-    user &&
-    !user.isBanned &&
-    [Role.ADMIN, Role.FOUNDER].includes(user.role)
-  )
+  return Boolean(user && !user.isBanned && (user.role === Role.ADMIN || user.role === Role.FOUNDER))
 }
 
 export async function GET(req: Request) {
   try {
     if (!(await requireAdmin())) {
-      return NextResponse.json(
-        { success: false, message: 'Tidak memiliki akses' },
-        { status: 403 }
-      )
+      return NextResponse.json({ success: false, message: 'Tidak memiliki akses' }, { status: 403 })
     }
 
     const { searchParams } = new URL(req.url)
@@ -38,7 +31,7 @@ export async function GET(req: Request) {
     const seriesId = searchParams.get('seriesId') || ''
     const search = searchParams.get('search')?.trim() || ''
 
-    const where: any = {}
+    const where: Prisma.ChapterWhereInput = {}
 
     if (seriesId) {
       where.seriesId = seriesId
@@ -52,19 +45,13 @@ export async function GET(req: Request) {
             mode: 'insensitive',
           },
         },
-        {
-          slug: {
-            contains: search,
-            mode: 'insensitive',
-          },
-        },
       ]
     }
 
     const chapters = await prisma.chapter.findMany({
       where,
       orderBy: {
-        number: 'asc',
+        chapterNumber: 'asc',
       },
       include: {
         series: {
@@ -77,94 +64,45 @@ export async function GET(req: Request) {
       },
     })
 
-    return NextResponse.json({
-      success: true,
-      data: chapters,
-    })
+    return NextResponse.json({ success: true, data: chapters })
   } catch (error) {
     console.error('ADMIN CHAPTERS GET ERROR:', error)
-
-    return NextResponse.json(
-      {
-        success: false,
-        message: 'Gagal mengambil chapter',
-      },
-      { status: 500 }
-    )
+    return NextResponse.json({ success: false, message: 'Gagal mengambil chapter' }, { status: 500 })
   }
 }
 
 export async function POST(req: Request) {
   try {
     if (!(await requireAdmin())) {
-      return NextResponse.json(
-        { success: false, message: 'Tidak memiliki akses' },
-        { status: 403 }
-      )
+      return NextResponse.json({ success: false, message: 'Tidak memiliki akses' }, { status: 403 })
     }
 
     const body = await req.json()
 
     const seriesId = String(body.seriesId || '')
-    const number = Number(body.number)
+    const chapterNumber = Number(body.chapterNumber ?? body.number)
     const title = String(body.title || '').trim()
-    const slug = String(body.slug || '').trim()
-    const coinPrice = Math.max(
-      Number(body.coinPrice || 0),
-      0
-    )
+    const coinPrice = Math.max(Number(body.coinPrice || 0), 0)
 
-    if (!seriesId || !title || !slug || !Number.isFinite(number)) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'Series, nomor, title, dan slug wajib diisi',
-        },
-        { status: 400 }
-      )
+    if (!seriesId || !title || !Number.isFinite(chapterNumber)) {
+      return NextResponse.json({ success: false, message: 'Series, nomor chapter, dan title wajib diisi' }, { status: 400 })
     }
 
-    const series = await prisma.series.findUnique({
-      where: { id: seriesId },
-    })
-
-    if (!series) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'Series tidak ditemukan',
-        },
-        { status: 404 }
-      )
-    }
+    const series = await prisma.series.findUnique({ where: { id: seriesId } })
+    if (!series) return NextResponse.json({ success: false, message: 'Series tidak ditemukan' }, { status: 404 })
 
     const chapter = await prisma.chapter.create({
       data: {
         seriesId,
-        number,
+        chapterNumber,
         title,
-        slug,
         coinPrice,
       },
     })
 
-    return NextResponse.json(
-      {
-        success: true,
-        message: 'Chapter berhasil dibuat',
-        data: chapter,
-      },
-      { status: 201 }
-    )
+    return NextResponse.json({ success: true, message: 'Chapter berhasil dibuat', data: chapter }, { status: 201 })
   } catch (error) {
     console.error('ADMIN CHAPTERS POST ERROR:', error)
-
-    return NextResponse.json(
-      {
-        success: false,
-        message: 'Gagal membuat chapter',
-      },
-      { status: 500 }
-    )
+    return NextResponse.json({ success: false, message: 'Gagal membuat chapter' }, { status: 500 })
   }
 }
