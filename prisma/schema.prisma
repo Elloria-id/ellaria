@@ -904,7 +904,7 @@ model Voucher {
   usedCount   Int      @default(0)
   expiresAt   DateTime?
   isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
+  createdAt DateTime @default(now())
 
   redemptions VoucherRedemption[]
 }
@@ -920,3 +920,37 @@ model VoucherRedemption {
 
   @@unique([voucherId, userId])
 }
+
+// ============================================================
+// NEW: LOGIN ATTEMPT (bruteforce protection)
+// ============================================================
+
+model LoginAttempt {
+  id          String   @id @default(cuid())
+  ipAddress   String
+  identifier  String?  // email or username
+  userId      String?
+  attempts    Int      @default(0)
+  lastAttempt DateTime @default(now())
+  blockedUntil DateTime?
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([identifier])
+  @@index([ipAddress])
+}
+
+// ============================================================
+// NEW: BACKUP RECORD
+// ============================================================
+
+model BackupRecord {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  path      String
+  meta      Json?
+  createdAt DateTime @default(now())
+}
+
+// ============================================================
+// (rest of file remains unchanged)
