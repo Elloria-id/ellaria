@@ -8,10 +8,7 @@ export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions)
     if (!session) {
-      return NextResponse.json(
-        { success: false, message: 'Unauthorized' },
-        { status: 401 }
-      )
+      return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 })
     }
 
     const today = new Date()
@@ -42,9 +39,7 @@ export async function GET(req: Request) {
     yesterday.setDate(yesterday.getDate() - 1)
 
     const lastClaim = await prisma.userDailyReward.findFirst({
-      where: {
-        userId: session.user.id,
-      },
+      where: { userId: session.user.id },
       orderBy: { claimedAt: 'desc' },
     })
 
@@ -54,7 +49,8 @@ export async function GET(req: Request) {
       lastDate.setHours(0, 0, 0, 0)
 
       if (lastDate.getTime() === yesterday.getTime()) {
-        streak = await this.getStreak(session.user.id) + 1
+        // Call module-level function directly (avoid `this`)
+        streak = await getStreak(session.user.id) + 1
       } else if (lastDate.getTime() < yesterday.getTime()) {
         streak = 1
       }
@@ -62,24 +58,11 @@ export async function GET(req: Request) {
 
     // Get reward for current day
     const day = ((streak - 1) % 7) + 1
-    const reward = await prisma.dailyReward.findFirst({
-      where: { day },
-    })
+    const reward = await prisma.dailyReward.findFirst({ where: { day } })
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        claimed: false,
-        streak,
-        day,
-        reward,
-      },
-    })
+    return NextResponse.json({ success: true, data: { claimed: false, streak, day, reward } })
   } catch (error) {
-    return NextResponse.json(
-      { success: false, message: 'Internal server error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ success: false, message: 'Internal server error' }, { status: 500 })
   }
 }
 
@@ -87,10 +70,7 @@ export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions)
     if (!session) {
-      return NextResponse.json(
-        { success: false, message: 'Unauthorized' },
-        { status: 401 }
-      )
+      return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 })
     }
 
     const result = await prisma.$transaction(async (tx) => {
@@ -99,33 +79,17 @@ export async function POST(req: Request) {
 
       // Check if already claimed
       const existingClaim = await tx.userDailyReward.findFirst({
-        where: {
-          userId: session.user.id,
-          claimedAt: { gte: today },
-        },
+        where: { userId: session.user.id, claimedAt: { gte: today } },
       })
 
-      if (existingClaim) {
-        throw new Error('Sudah mengklaim reward hari ini')
-      }
+      if (existingClaim) throw new Error('Sudah mengklaim reward hari ini')
 
       // Get reward
-      const reward = await tx.dailyReward.findFirst({
-        where: { day: 1 }, // Will calculate streak properly
-        orderBy: { day: 'asc' },
-      })
-
-      if (!reward) {
-        throw new Error('Reward tidak ditemukan')
-      }
+      const reward = await tx.dailyReward.findFirst({ where: { day: 1 }, orderBy: { day: 'asc' } })
+      if (!reward) throw new Error('Reward tidak ditemukan')
 
       // Claim reward
-      await tx.userDailyReward.create({
-        data: {
-          userId: session.user.id,
-          rewardId: reward.id,
-        },
-      })
+      await tx.userDailyReward.create({ data: { userId: session.user.id, rewardId: reward.id } })
 
       // Add coins
       if (reward.coins > 0) {
@@ -141,65 +105,33 @@ export async function POST(req: Request) {
 
       // Add EXP
       if (reward.exp > 0) {
-        await tx.user.update({
-          where: { id: session.user.id },
-          data: { exp: { increment: reward.exp } },
-        })
+        await tx.user.update({ where: { id: session.user.id }, data: { exp: { increment: reward.exp } } })
       }
 
       return reward
     })
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        claimed: true,
-        reward: result,
-      },
-    })
+    return NextResponse.json({ success: true, data: { claimed: true, reward: result } })
   } catch (error) {
     if (error instanceof Error) {
-      return NextResponse.json(
-        { success: false, message: error.message },
-        { status: 400 }
-      )
+      return NextResponse.json({ success: false, message: error.message }, { status: 400 })
     }
-    return NextResponse.json(
-      { success: false, message: 'Internal server error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ success: false, message: 'Internal server error' }, { status: 500 })
   }
 }
 
-// Helper function untuk streak calculation (harus didefinisikan di atas)
-async function getStreak(userId: string): Promise<number> {
-  const claims = await prisma.userDailyReward.findMany({
-    where: { userId },
-    orderBy: { claimedAt: 'desc' },
-  })
-
+// Helper function untuk streak calculation
+export async function getStreak(userId: string): Promise<number> {
+  const claims = await prisma.userDailyReward.findMany({ where: { userId }, orderBy: { claimedAt: 'desc' } })
   if (claims.length === 0) return 0
 
   let streak = 1
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-
   for (let i = 0; i < claims.length - 1; i++) {
-    const current = new Date(claims[i].claimedAt)
-    current.setHours(0, 0, 0, 0)
-
-    const next = new Date(claims[i + 1].claimedAt)
-    next.setHours(0, 0, 0, 0)
-
+    const current = new Date(claims[i].claimedAt); current.setHours(0, 0, 0, 0)
+    const next = new Date(claims[i + 1].claimedAt); next.setHours(0, 0, 0, 0)
     const diffDays = Math.floor((current.getTime() - next.getTime()) / (1000 * 60 * 60 * 24))
-    if (diffDays === 1) {
-      streak++
-    } else {
-      break
-    }
+    if (diffDays === 1) streak++
+    else break
   }
-
   return streak
 }
-
-// ... sisanya sama
