@@ -160,3 +160,15 @@ export async function refundCoins(
     referenceId
   )
 }
+
+// Default export WalletService wrapper to satisfy imports expecting WalletService
+const WalletService = {
+  getWallet,
+  getCoinBalance,
+  addCoins,
+  removeCoins,
+  transferCoins,
+  refundCoins,
+}
+
+export default WalletService
