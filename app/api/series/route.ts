@@ -1,105 +1,120 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
-import { z } from 'zod'
-
-const querySchema = z.object({
-  page: z.coerce.number().default(1),
-  limit: z.coerce.number().default(20),
-  type: z.enum(['MANGA', 'MANHWA', 'MANHUA', 'NOVEL', 'ONE_SHOT']).optional(),
-  genre: z.string().optional(),
-  status: z.enum(['ONGOING', 'COMPLETED', 'HIATUS']).optional(),
-  search: z.string().optional(),
-  sort: z.enum(['newest', 'popular', 'views']).default('newest'),
-})
-
-// Di bagian orderBy:
-let orderBy: any = {}
-switch (validated.sort) {
-  case 'newest':
-    orderBy = { createdAt: 'desc' }
-    break
-  case 'popular':
-    orderBy = { views: 'desc' }
-    break
-  case 'views':
-    orderBy = { views: 'desc' }
-    break
-  default:
-    orderBy = { createdAt: 'desc' }
-}
 
 export async function GET(req: Request) {
   try {
-    const url = new URL(req.url)
-    const params = Object.fromEntries(url.searchParams)
-    const validated = querySchema.parse(params)
+    const { searchParams } = new URL(req.url)
 
-    const { page, limit, type, genre, status, search } = validated
-    const skip = (page - 1) * limit
+    const page = Math.max(
+      1,
+      Number(searchParams.get('page') || 1)
+    )
 
-    const where: any = { published: true }
+    const limit = Math.min(
+      50,
+      Math.max(1, Number(searchParams.get('limit') || 20))
+    )
 
-    if (type) where.type = type
-    if (status) where.status = status
-    if (search) {
-      where.OR = [
-        { title: { contains: search, mode: 'insensitive' } },
-        { alternativeTitle: { contains: search, mode: 'insensitive' } },
-        { author: { contains: search, mode: 'insensitive' } },
-        { artist: { contains: search, mode: 'insensitive' } },
-      ]
+    const type = searchParams.get('type')
+    const status = searchParams.get('status')
+    const genre = searchParams.get('genre')
+    const sort = searchParams.get('sort') || 'latest'
+
+    const where: any = {
+      published: true,
     }
+
+    if (type) {
+      where.type = type
+    }
+
+    if (status) {
+      where.status = status
+    }
+
     if (genre) {
       where.genres = {
         some: {
-          genre: { slug: genre },
+          genre: {
+            slug: genre,
+          },
         },
       }
     }
 
-    const [series, total] = await Promise.all([
+    let orderBy: any = {
+      createdAt: 'desc',
+    }
+
+    if (sort === 'popular') {
+      orderBy = {
+        views: 'desc',
+      }
+    }
+
+    if (sort === 'rating') {
+      orderBy = {
+        rating: 'desc',
+      }
+    }
+
+    const [series, total] = await prisma.$transaction([
       prisma.series.findMany({
         where,
-        skip,
+        orderBy,
+        skip: (page - 1) * limit,
         take: limit,
-        orderBy: { createdAt: 'desc' },
         include: {
-          genres: { include: { genre: true } },
-          chapters: {
-            where: { isPublished: true },
-            orderBy: { chapterNumber: 'desc' },
-            take: 1,
+          genres: {
+            include: {
+              genre: true,
+            },
           },
-          _count: {
-            select: { chapters: true, bookmarks: true },
+          chapters: {
+            where: {
+              isPublished: true,
+            },
+            orderBy: {
+              chapterNumber: 'desc',
+            },
+            take: 1,
+            select: {
+              id: true,
+              chapterNumber: true,
+              title: true,
+              isPremium: true,
+              createdAt: true,
+            },
           },
         },
       }),
-      prisma.series.count({ where }),
+
+      prisma.series.count({
+        where,
+      }),
     ])
 
     return NextResponse.json({
       success: true,
-      data: {
-        series,
-        pagination: {
-          page,
-          limit,
-          total,
-          pages: Math.ceil(total / limit),
-        },
+      data: series,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
       },
     })
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { success: false, message: 'Parameter tidak valid' },
-        { status: 400 }
-      )
-    }
+    console.error('SERIES_LIST_ERROR:', error)
+
     return NextResponse.json(
-      { success: false, message: 'Internal server error' },
-      { status: 500 }
+      {
+        success: false,
+        message: 'Gagal mengambil daftar series',
+      },
+      {
+        status: 500,
+      }
     )
   }
 }
