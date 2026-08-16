@@ -1,118 +1,173 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/db/prisma'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth'
-import { WalletService } from '@/lib/coins/wallet.service'
-import { z } from 'zod'
-
-const unlockSchema = z.object({
-  chapterId: z.string(),
-})
+import { prisma } from '@/lib/db/prisma'
+import { removeCoins } from '@/lib/coins/wallet.service'
 
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session) {
+
+    if (!session?.user?.id) {
       return NextResponse.json(
-        { success: false, message: 'Unauthorized' },
+        {
+          success: false,
+          message: 'Unauthorized',
+        },
         { status: 401 }
       )
     }
 
     const body = await req.json()
-    const validated = unlockSchema.parse(body)
+    const chapterId = body?.chapterId
 
-    const chapter = await prisma.chapter.findUnique({
-      where: { id: validated.chapterId },
-      include: { series: true },
-    })
-
-    if (!chapter) {
+    if (!chapterId || typeof chapterId !== 'string') {
       return NextResponse.json(
-        { success: false, message: 'Chapter tidak ditemukan' },
-        { status: 404 }
-      )
-    }
-
-    if (!chapter.isPremium && !chapter.isLocked) {
-      return NextResponse.json(
-        { success: false, message: 'Chapter ini gratis' },
+        {
+          success: false,
+          message: 'chapterId wajib diisi',
+        },
         { status: 400 }
       )
     }
 
-    const existing = await prisma.chapterEntitlement.findUnique({
+    const userId = session.user.id
+
+    const chapter = await prisma.chapter.findUnique({
       where: {
-        userId_chapterId: {
-          userId: session.user.id,
-          chapterId: chapter.id,
-        },
+        id: chapterId,
+      },
+      include: {
+        series: true,
       },
     })
 
-    if (existing) {
+    if (!chapter) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Chapter tidak ditemukan',
+        },
+        { status: 404 }
+      )
+    }
+
+    if (!chapter.isPublished) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Chapter belum diterbitkan',
+        },
+        { status: 403 }
+      )
+    }
+
+    const existingEntitlement =
+      await prisma.chapterEntitlement.findUnique({
+        where: {
+          userId_chapterId: {
+            userId,
+            chapterId,
+          },
+        },
+      })
+
+    if (existingEntitlement) {
       return NextResponse.json({
         success: true,
         message: 'Chapter sudah terbuka',
+        unlocked: true,
+        alreadyUnlocked: true,
       })
     }
 
-    const vip = await prisma.userVIP.findFirst({
-      where: {
-        userId: session.user.id,
-        expiresAt: { gt: new Date() },
-      },
-    })
-
-    if (vip) {
+    if (!chapter.isPremium && !chapter.isLocked) {
       await prisma.chapterEntitlement.create({
         data: {
-          userId: session.user.id,
-          chapterId: chapter.id,
+          userId,
+          chapterId,
         },
       })
 
       return NextResponse.json({
         success: true,
-        message: 'Chapter terbuka (VIP)',
+        message: 'Chapter berhasil dibuka',
+        unlocked: true,
+        cost: 0,
       })
     }
 
-    const balance = await WalletService.spendCoins(
-      session.user.id,
-      chapter.coinPrice,
-      chapter.id,
-      `Unlock chapter ${chapter.chapterNumber} - ${chapter.series.title}`
+    const cost = Math.max(0, chapter.coinPrice)
+
+    if (cost === 0) {
+      await prisma.chapterEntitlement.create({
+        data: {
+          userId,
+          chapterId,
+        },
+      })
+
+      return NextResponse.json({
+        success: true,
+        message: 'Chapter berhasil dibuka',
+        unlocked: true,
+        cost: 0,
+      })
+    }
+
+    const wallet = await prisma.coinWallet.findUnique({
+      where: {
+        userId,
+      },
+    })
+
+    if (!wallet || wallet.balance < cost) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Coin tidak cukup',
+          required: cost,
+          balance: wallet?.balance ?? 0,
+        },
+        { status: 402 }
+      )
+    }
+
+    const updatedWallet = await removeCoins(
+      userId,
+      cost,
+      'PURCHASE',
+      `Unlock chapter ${chapter.chapterNumber} - ${chapter.series.title}`,
+      chapter.id
     )
 
     await prisma.chapterEntitlement.create({
       data: {
-        userId: session.user.id,
-        chapterId: chapter.id,
+        userId,
+        chapterId,
       },
     })
 
     return NextResponse.json({
       success: true,
-      message: 'Chapter terbuka',
-      remainingBalance: balance,
+      message: 'Chapter berhasil dibuka',
+      unlocked: true,
+      alreadyUnlocked: false,
+      cost,
+      balance: updatedWallet.balance,
     })
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { success: false, message: 'Input tidak valid' },
-        { status: 400 }
-      )
-    }
-    if (error instanceof Error && error.message === 'Saldo tidak cukup') {
-      return NextResponse.json(
-        { success: false, message: 'Saldo tidak cukup' },
-        { status: 400 }
-      )
-    }
+    console.error('POST /api/chapters/unlock error:', error)
+
     return NextResponse.json(
-      { success: false, message: 'Internal server error' },
+      {
+        success: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Gagal membuka chapter',
+      },
       { status: 500 }
     )
   }
-      }
+}
