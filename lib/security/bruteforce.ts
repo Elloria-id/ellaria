@@ -11,7 +11,7 @@ export class BruteForceProtection {
     const attempts = await prisma.loginAttempt.count({
       where: {
         identifier,
-        createdAt: { gte: windowStart },
+        lastAttempt: { gte: windowStart },
       },
     })
 
@@ -41,7 +41,7 @@ export class BruteForceProtection {
     const attempts = await prisma.loginAttempt.count({
       where: {
         identifier,
-        createdAt: { gte: windowStart },
+        lastAttempt: { gte: windowStart },
       },
     })
 
