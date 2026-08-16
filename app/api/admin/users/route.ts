@@ -8,7 +8,7 @@ async function checkAdmin() {
   const session = await getServerSession(authOptions)
 
   if (!session?.user?.id) {
-    return { authorized: false, session: null }
+    return { authorized: false, session: null as unknown }
   }
 
   const user = await prisma.user.findUnique({
@@ -16,11 +16,7 @@ async function checkAdmin() {
     select: { role: true, isBanned: true },
   })
 
-  if (
-    !user ||
-    user.isBanned ||
-    ![Role.ADMIN, Role.FOUNDER].includes(user.role)
-  ) {
+  if (!user || user.isBanned || !(user.role === Role.ADMIN || user.role === Role.FOUNDER)) {
     return { authorized: false, session }
   }
 
@@ -33,29 +29,17 @@ export async function GET(req: Request) {
     const auth = await checkAdmin()
 
     if (!auth.authorized) {
-      return NextResponse.json(
-        { success: false, message: 'Tidak memiliki akses' },
-        { status: 403 }
-      )
+      return NextResponse.json({ success: false, message: 'Tidak memiliki akses' }, { status: 403 })
     }
 
     const { searchParams } = new URL(req.url)
 
     const search = searchParams.get('search')?.trim() || ''
     const role = searchParams.get('role') || ''
-    const page = Math.max(
-      Number.parseInt(searchParams.get('page') || '1', 10),
-      1
-    )
-    const limit = Math.min(
-      Math.max(
-        Number.parseInt(searchParams.get('limit') || '20', 10),
-        1
-      ),
-      100
-    )
+    const page = Math.max(Number.parseInt(searchParams.get('page') || '1', 10), 1)
+    const limit = Math.min(Math.max(Number.parseInt(searchParams.get('limit') || '20', 10), 1), 100)
 
-    const where: any = {}
+    const where: Record<string, unknown> = {}
 
     if (search) {
       where.OR = [
@@ -74,19 +58,14 @@ export async function GET(req: Request) {
       ]
     }
 
-    if (
-      role &&
-      Object.values(Role).includes(role as Role)
-    ) {
-      where.role = role as Role
+    if (role && Object.values(Role).includes(role as Role)) {
+      ;(where as any).role = role as Role
     }
 
     const [users, total] = await prisma.$transaction([
       prisma.user.findMany({
         where,
-        orderBy: {
-          createdAt: 'desc',
-        },
+        orderBy: { createdAt: 'desc' },
         skip: (page - 1) * limit,
         take: limit,
         select: {
@@ -107,7 +86,7 @@ export async function GET(req: Request) {
               bookmarks: true,
               comments: true,
               followers: true,
-              following: true,
+              follows: true,
             },
           },
         },
@@ -131,13 +110,7 @@ export async function GET(req: Request) {
   } catch (error) {
     console.error('ADMIN USERS GET ERROR:', error)
 
-    return NextResponse.json(
-      {
-        success: false,
-        message: 'Gagal mengambil data user',
-      },
-      { status: 500 }
-    )
+    return NextResponse.json({ success: false, message: 'Gagal mengambil data user' }, { status: 500 })
   }
 }
 
@@ -147,29 +120,17 @@ export async function PATCH(req: Request) {
     const auth = await checkAdmin()
 
     if (!auth.authorized || !auth.session?.user?.id) {
-      return NextResponse.json(
-        { success: false, message: 'Tidak memiliki akses' },
-        { status: 403 }
-      )
+      return NextResponse.json({ success: false, message: 'Tidak memiliki akses' }, { status: 403 })
     }
 
     const body = await req.json()
 
     const userId = String(body.userId || '')
     const newRole = body.role
-    const isBanned =
-      typeof body.isBanned === 'boolean'
-        ? body.isBanned
-        : undefined
+    const isBanned = typeof body.isBanned === 'boolean' ? body.isBanned : undefined
 
     if (!userId) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'userId wajib diisi',
-        },
-        { status: 400 }
-      )
+      return NextResponse.json({ success: false, message: 'userId wajib diisi' }, { status: 400 })
     }
 
     const targetUser = await prisma.user.findUnique({
@@ -183,13 +144,7 @@ export async function PATCH(req: Request) {
     })
 
     if (!targetUser) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'User tidak ditemukan',
-        },
-        { status: 404 }
-      )
+      return NextResponse.json({ success: false, message: 'User tidak ditemukan' }, { status: 404 })
     }
 
     const currentAdmin = await prisma.user.findUnique({
@@ -198,42 +153,18 @@ export async function PATCH(req: Request) {
     })
 
     // Founder tidak boleh diturunkan oleh ADMIN.
-    if (
-      targetUser.role === Role.FOUNDER &&
-      currentAdmin?.role !== Role.FOUNDER
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'Akun Founder tidak dapat diubah oleh Admin',
-        },
-        { status: 403 }
-      )
+    if (targetUser.role === Role.FOUNDER && currentAdmin?.role !== Role.FOUNDER) {
+      return NextResponse.json({ success: false, message: 'Akun Founder tidak dapat diubah oleh Admin' }, { status: 403 })
     }
 
     // Hanya Founder yang boleh memberikan / mencabut role FOUNDER.
-    if (
-      newRole === Role.FOUNDER &&
-      currentAdmin?.role !== Role.FOUNDER
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'Hanya Founder yang dapat mengatur role Founder',
-        },
-        { status: 403 }
-      )
+    if (newRole === Role.FOUNDER && currentAdmin?.role !== Role.FOUNDER) {
+      return NextResponse.json({ success: false, message: 'Hanya Founder yang dapat mengatur role Founder' }, { status: 403 })
     }
 
-    const updateData: {
-      role?: Role
-      isBanned?: boolean
-    } = {}
+    const updateData: { role?: Role; isBanned?: boolean } = {}
 
-    if (
-      newRole &&
-      Object.values(Role).includes(newRole as Role)
-    ) {
+    if (newRole && Object.values(Role).includes(newRole as Role)) {
       updateData.role = newRole as Role
     }
 
@@ -242,13 +173,7 @@ export async function PATCH(req: Request) {
     }
 
     if (Object.keys(updateData).length === 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'Tidak ada perubahan',
-        },
-        { status: 400 }
-      )
+      return NextResponse.json({ success: false, message: 'Tidak ada perubahan' }, { status: 400 })
     }
 
     const updatedUser = await prisma.user.update({
@@ -269,20 +194,9 @@ export async function PATCH(req: Request) {
       },
     })
 
-    return NextResponse.json({
-      success: true,
-      message: 'User berhasil diperbarui',
-      data: updatedUser,
-    })
+    return NextResponse.json({ success: true, message: 'User berhasil diperbarui', data: updatedUser })
   } catch (error) {
     console.error('ADMIN USERS PATCH ERROR:', error)
-
-    return NextResponse.json(
-      {
-        success: false,
-        message: 'Gagal memperbarui user',
-      },
-      { status: 500 }
-    )
+    return NextResponse.json({ success: false, message: 'Gagal memperbarui user' }, { status: 500 })
   }
 }

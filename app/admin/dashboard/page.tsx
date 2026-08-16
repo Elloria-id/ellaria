@@ -4,6 +4,8 @@ import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/db/prisma'
 import { StatsCards } from '@/components/admin/StatsCards'
 
+type IconLiteral = 'User' | 'Users' | 'Book' | 'FileText' | 'Eye' | 'CreditCard' | 'Inbox' | 'AlertTriangle'
+
 export default async function AdminDashboard() {
   const session = await getServerSession(authOptions)
   if (!session || !['ADMIN', 'FOUNDER'].includes(session.user?.role as string)) {
@@ -22,7 +24,7 @@ export default async function AdminDashboard() {
       prisma.commentReport.count({ where: { status: 'PENDING' } }),
     ])
 
-  const stats = [
+  const stats: { label: string; value: number; icon: IconLiteral }[] = [
     { label: 'Total Users', value: totalUsers, icon: 'Users' },
     { label: 'Active Users', value: activeUsers, icon: 'User' },
     { label: 'Total Series', value: totalSeries, icon: 'Book' },
