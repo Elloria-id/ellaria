@@ -107,7 +107,8 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         session.user.id = token.id as string
         session.user.username = token.username as string
-        session.user.role = token.role as string
+        // token.role is typed as import('@prisma/client').Role via augmentation
+        session.user.role = token.role as import('@prisma/client').Role
         session.user.avatar = token.avatar as string | null
         session.user.coins = token.coins as number
         session.user.exp = token.exp as number
