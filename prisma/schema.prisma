@@ -73,6 +73,7 @@ model User {
   seriesOwned       Series[] @relation("OwnerSeries")
   leaderboardEntries LeaderboardEntry[]
   voucherRedemptions VoucherRedemption[]
+  chapterWaits ChapterWait[]
 }
 
 model Account {
