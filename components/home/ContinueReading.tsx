@@ -1,59 +1,74 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import Link from 'next/link'
-import { ChevronRight } from 'lucide-react'
+type ContinueItem = {
+  id: string
+  title: string
+  cover?: string | null
+  chapter?: number
+  slug: string
+}
 
-export function ContinueReading() {
-  const [progress, setProgress] = useState<any[]>([])
-
-  useEffect(() => {
-    fetch('/api/reader/continue')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success) {
-          setProgress(data.data)
-        }
-      })
-  }, [])
-
-  if (progress.length === 0) return null
+export default function ContinueReading({
+  items = [],
+}: {
+  items?: ContinueItem[]
+}) {
+  if (items.length === 0) return null
 
   return (
-    <div className="mb-8">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-bold">Lanjut Membaca</h2>
-        <Link href="/history" className="text-sm text-primary hover:underline">
-          Lihat Semua
-        </Link>
-      </div>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {progress.map((item) => (
-          <Link
-            key={item.id}
-            href={`/reader/${item.series.slug}/${item.chapterId}`}
-            className="glass-card p-4 hover:border-primary/50 transition-all"
+    <section className="px-4 py-5">
+      <div className="mx-auto max-w-7xl">
+
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-bold">
+            Continue Reading
+          </h2>
+
+          <a
+            href="/history"
+            className="text-xs text-[#42A5F5]"
           >
-            <div className="relative aspect-[3/4] overflow-hidden rounded-lg mb-3">
-              <img
-                src={item.series.cover || '/images/placeholder-cover.jpg'}
-                alt={item.series.title}
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute bottom-0 left-0 right-0 h-1 bg-dark-300">
-                <div
-                  className="h-full bg-primary"
-                  style={{ width: `${(item.progress || 0) * 100}%` }}
-                />
+            Lihat semua
+          </a>
+        </div>
+
+        <div className="flex gap-4 overflow-x-auto pb-2">
+
+          {items.map(item => (
+            <a
+              key={item.id}
+              href={`/reader/${item.slug}/${item.id}`}
+              className="w-32 shrink-0"
+            >
+              <div className="aspect-[2/3] overflow-hidden rounded-xl bg-white/5">
+                {item.cover ? (
+                  <img
+                    src={item.cover}
+                    alt={item.title}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full items-center justify-center text-[10px] text-gray-500">
+                    NO COVER
+                  </div>
+                )}
               </div>
-            </div>
-            <h3 className="font-medium truncate">{item.series.title}</h3>
-            <p className="text-sm text-gray-400">
-              Chapter {item.chapter.chapterNumber}
-            </p>
-          </Link>
-        ))}
+
+              <p className="mt-2 line-clamp-2 text-xs font-medium">
+                {item.title}
+              </p>
+
+              {item.chapter !== undefined && (
+                <p className="mt-1 text-[10px] text-gray-500">
+                  Chapter {item.chapter}
+                </p>
+              )}
+            </a>
+          ))}
+
+        </div>
+
       </div>
-    </div>
+    </section>
   )
 }
