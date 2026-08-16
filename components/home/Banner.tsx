@@ -39,7 +39,10 @@ export default function Banner({
     return () => clearInterval(timer)
   }, [items.length])
 
-  const banner = items[active]
+  const banner =
+  items.length > 0
+    ? items[active]
+    : defaultBanners[0]
 
   return (
     <section className="px-4 py-4">
