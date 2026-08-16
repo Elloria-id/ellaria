@@ -9,7 +9,10 @@ export async function GET() {
 
     if (!session?.user?.id) {
       return NextResponse.json(
-        { success: false, message: 'Unauthorized' },
+        {
+          success: false,
+          message: 'Unauthorized',
+        },
         { status: 401 }
       )
     }
@@ -18,9 +21,7 @@ export async function GET() {
       where: {
         userId: session.user.id,
       },
-      orderBy: {
-        createdAt: 'desc',
-      },
+
       include: {
         series: {
           include: {
@@ -29,22 +30,12 @@ export async function GET() {
                 genre: true,
               },
             },
-            chapters: {
-              where: {
-                isPublished: true,
-              },
-              orderBy: {
-                chapterNumber: 'desc',
-              },
-              take: 1,
-              select: {
-                id: true,
-                chapterNumber: true,
-                title: true,
-              },
-            },
           },
         },
+      },
+
+      orderBy: {
+        createdAt: 'desc',
       },
     })
 
@@ -71,15 +62,17 @@ export async function POST(req: Request) {
 
     if (!session?.user?.id) {
       return NextResponse.json(
-        { success: false, message: 'Unauthorized' },
+        {
+          success: false,
+          message: 'Unauthorized',
+        },
         { status: 401 }
       )
     }
 
     const body = await req.json()
-    const seriesId = String(body.seriesId || '').trim()
 
-    if (!seriesId) {
+    if (!body.seriesId) {
       return NextResponse.json(
         {
           success: false,
@@ -91,15 +84,11 @@ export async function POST(req: Request) {
 
     const series = await prisma.series.findUnique({
       where: {
-        id: seriesId,
-      },
-      select: {
-        id: true,
-        published: true,
+        id: body.seriesId,
       },
     })
 
-    if (!series || !series.published) {
+    if (!series) {
       return NextResponse.json(
         {
           success: false,
@@ -109,41 +98,25 @@ export async function POST(req: Request) {
       )
     }
 
-    const existing = await prisma.bookmark.findUnique({
+    const bookmark = await prisma.bookmark.upsert({
       where: {
         userId_seriesId: {
           userId: session.user.id,
-          seriesId,
+          seriesId: body.seriesId,
         },
       },
-    })
 
-    if (existing) {
-      await prisma.bookmark.delete({
-        where: {
-          id: existing.id,
-        },
-      })
+      update: {},
 
-      return NextResponse.json({
-        success: true,
-        bookmarked: false,
-        message: 'Bookmark dihapus',
-      })
-    }
-
-    const bookmark = await prisma.bookmark.create({
-      data: {
+      create: {
         userId: session.user.id,
-        seriesId,
+        seriesId: body.seriesId,
       },
     })
 
     return NextResponse.json({
       success: true,
-      bookmarked: true,
       data: bookmark,
-      message: 'Series ditambahkan ke bookmark',
     })
   } catch (error) {
     console.error('BOOKMARK_POST_ERROR:', error)
@@ -151,7 +124,58 @@ export async function POST(req: Request) {
     return NextResponse.json(
       {
         success: false,
-        message: 'Gagal mengubah bookmark',
+        message: 'Gagal menambahkan bookmark',
+      },
+      { status: 500 }
+    )
+  }
+}
+
+export async function DELETE(req: Request) {
+  try {
+    const session = await getServerSession(authOptions)
+
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Unauthorized',
+        },
+        { status: 401 }
+      )
+    }
+
+    const { searchParams } = new URL(req.url)
+    const seriesId = searchParams.get('seriesId')
+
+    if (!seriesId) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'seriesId diperlukan',
+        },
+        { status: 400 }
+      )
+    }
+
+    await prisma.bookmark.deleteMany({
+      where: {
+        userId: session.user.id,
+        seriesId,
+      },
+    })
+
+    return NextResponse.json({
+      success: true,
+      message: 'Bookmark dihapus',
+    })
+  } catch (error) {
+    console.error('BOOKMARK_DELETE_ERROR:', error)
+
+    return NextResponse.json(
+      {
+        success: false,
+        message: 'Gagal menghapus bookmark',
       },
       { status: 500 }
     )
