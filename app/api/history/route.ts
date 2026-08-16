@@ -3,24 +3,32 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth'
 import { prisma } from '@/lib/db/prisma'
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions)
 
     if (!session?.user?.id) {
       return NextResponse.json(
-        { success: false, message: 'Unauthorized' },
+        {
+          success: false,
+          message: 'Unauthorized',
+        },
         { status: 401 }
       )
     }
+
+    const { searchParams } = new URL(req.url)
+
+    const limit = Math.min(
+      50,
+      Math.max(1, Number(searchParams.get('limit') || 20))
+    )
 
     const history = await prisma.readingHistory.findMany({
       where: {
         userId: session.user.id,
       },
-      orderBy: {
-        lastReadAt: 'desc',
-      },
+
       include: {
         series: {
           select: {
@@ -33,15 +41,22 @@ export async function GET() {
             label: true,
           },
         },
+
         chapter: {
           select: {
             id: true,
             chapterNumber: true,
             title: true,
+            contentType: true,
           },
         },
       },
-      take: 100,
+
+      orderBy: {
+        lastReadAt: 'desc',
+      },
+
+      take: limit,
     })
 
     return NextResponse.json({
@@ -54,7 +69,7 @@ export async function GET() {
     return NextResponse.json(
       {
         success: false,
-        message: 'Gagal mengambil riwayat',
+        message: 'Gagal mengambil riwayat baca',
       },
       { status: 500 }
     )
@@ -67,18 +82,17 @@ export async function POST(req: Request) {
 
     if (!session?.user?.id) {
       return NextResponse.json(
-        { success: false, message: 'Unauthorized' },
+        {
+          success: false,
+          message: 'Unauthorized',
+        },
         { status: 401 }
       )
     }
 
     const body = await req.json()
 
-    const seriesId = String(body.seriesId || '')
-    const chapterId = String(body.chapterId || '')
-    const progress = Number(body.progress || 0)
-
-    if (!seriesId || !chapterId) {
+    if (!body.seriesId || !body.chapterId) {
       return NextResponse.json(
         {
           success: false,
@@ -88,42 +102,37 @@ export async function POST(req: Request) {
       )
     }
 
-    const chapter = await prisma.chapter.findFirst({
+    const chapter = await prisma.chapter.findUnique({
       where: {
-        id: chapterId,
-        seriesId,
-        isPublished: true,
+        id: body.chapterId,
+      },
+      select: {
+        id: true,
+        seriesId: true,
       },
     })
 
-    if (!chapter) {
+    if (!chapter || chapter.seriesId !== body.seriesId) {
       return NextResponse.json(
         {
           success: false,
-          message: 'Chapter tidak ditemukan',
+          message: 'Chapter tidak valid',
         },
-        { status: 404 }
+        { status: 400 }
       )
     }
 
-    const safeProgress = Math.max(
-      0,
-      Math.min(100, progress)
-    )
+    const progress =
+      typeof body.progress === 'number'
+        ? Math.max(0, Math.min(100, body.progress))
+        : 0
 
-    const history = await prisma.readingHistory.upsert({
-      where: {
-        id: `${session.user.id}_${seriesId}_${chapterId}`,
-      },
-      create: {
-        id: `${session.user.id}_${seriesId}_${chapterId}`,
+    const history = await prisma.readingHistory.create({
+      data: {
         userId: session.user.id,
-        seriesId,
-        chapterId,
-        progress: safeProgress,
-      },
-      update: {
-        progress: safeProgress,
+        seriesId: body.seriesId,
+        chapterId: body.chapterId,
+        progress,
         lastReadAt: new Date(),
       },
     })
@@ -139,6 +148,55 @@ export async function POST(req: Request) {
       {
         success: false,
         message: 'Gagal menyimpan riwayat',
+      },
+      { status: 500 }
+    )
+  }
+}
+
+export async function DELETE(req: Request) {
+  try {
+    const session = await getServerSession(authOptions)
+
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Unauthorized',
+        },
+        { status: 401 }
+      )
+    }
+
+    const { searchParams } = new URL(req.url)
+    const historyId = searchParams.get('id')
+
+    if (historyId) {
+      await prisma.readingHistory.deleteMany({
+        where: {
+          id: historyId,
+          userId: session.user.id,
+        },
+      })
+    } else {
+      await prisma.readingHistory.deleteMany({
+        where: {
+          userId: session.user.id,
+        },
+      })
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Riwayat berhasil dihapus',
+    })
+  } catch (error) {
+    console.error('HISTORY_DELETE_ERROR:', error)
+
+    return NextResponse.json(
+      {
+        success: false,
+        message: 'Gagal menghapus riwayat',
       },
       { status: 500 }
     )
