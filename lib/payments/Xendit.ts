@@ -1,4 +1,4 @@
-import { PaymentProvider } from './PaymentProvider'
+import type { PaymentProvider, CreatePaymentParams, PaymentResult } from './PaymentProvider'
 import crypto from 'crypto'
 
 export class XenditProvider implements PaymentProvider {
@@ -12,19 +12,15 @@ export class XenditProvider implements PaymentProvider {
     this.baseUrl = 'https://api.xendit.co'
   }
 
-  async createPayment(
-    userId: string,
-    packageId: string,
-    amount: number,
-    metadata?: any
-  ) {
-    const externalId = `ELLARIA-${Date.now()}-${userId.slice(0, 6)}`
+  async createPayment(params: CreatePaymentParams): Promise<PaymentResult> {
+    const userId = params.userId ?? 'anonymous'
+    const externalId = params.merchantRef || `ELLARIA-${Date.now()}-${userId.slice(0, 6)}`
 
     const payload = {
       external_id: externalId,
-      amount: amount,
-      payer_email: metadata?.email || 'user@ellaria.com',
-      description: metadata?.description || 'Ellaria Coin Package',
+      amount: params.amount,
+      payer_email: params.customerEmail || 'user@ellaria.com',
+      description: params.itemName || 'Ellaria Coin Package',
       invoice_duration: 86400, // 24 jam
     }
 
@@ -48,18 +44,17 @@ export class XenditProvider implements PaymentProvider {
       providerReference: data.id,
       paymentUrl: data.invoice_url,
       expiresAt: new Date(data.expiry_date),
+      metadata: data,
+      success: true,
     }
   }
 
   async verifyPayment(providerReference: string) {
-    const response = await fetch(
-      `${this.baseUrl}/v2/invoices/${providerReference}`,
-      {
-        headers: {
-          Authorization: `Basic ${Buffer.from(this.apiKey + ':').toString('base64')}`,
-        },
-      }
-    )
+    const response = await fetch(`${this.baseUrl}/v2/invoices/${providerReference}`, {
+      headers: {
+        Authorization: `Basic ${Buffer.from(this.apiKey + ':').toString('base64')}`,
+      },
+    })
 
     const data = await response.json()
 
@@ -67,11 +62,11 @@ export class XenditProvider implements PaymentProvider {
       return { status: 'FAILED' }
     }
 
-    const statusMap: Record<string, any> = {
-      'PAID': 'PAID',
-      'SETTLED': 'PAID',
-      'PENDING': 'PENDING',
-      'EXPIRED': 'EXPIRED',
+    const statusMap: Record<string, string> = {
+      PAID: 'PAID',
+      SETTLED: 'PAID',
+      PENDING: 'PENDING',
+      EXPIRED: 'EXPIRED',
     }
 
     return {
@@ -81,12 +76,7 @@ export class XenditProvider implements PaymentProvider {
   }
 
   verifyWebhookSignature(body: any, signature: string): boolean {
-    // Xendit menggunakan x-endit-signature
-    const expectedSignature = crypto
-      .createHmac('sha256', this.apiKey)
-      .update(JSON.stringify(body))
-      .digest('hex')
-
+    const expectedSignature = crypto.createHmac('sha256', this.apiKey).update(JSON.stringify(body)).digest('hex')
     return signature === expectedSignature
   }
 }
