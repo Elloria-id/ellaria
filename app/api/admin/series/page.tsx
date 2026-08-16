@@ -1,38 +1,19 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { FormEvent, useEffect, useState } from 'react'
 
 type Series = {
   id: string
   title: string
   slug: string
-  cover: string | null
   type: string
-  status: string
-  label: string
-  published: boolean
-  isPremium: boolean
-  is18Plus: boolean
+  description: string | null
+  cover: string | null
+  createdAt: string
   _count?: {
     chapters: number
     bookmarks: number
-    comments: number
   }
-}
-
-const emptyForm = {
-  title: '',
-  slug: '',
-  type: 'MANGA',
-  status: 'ONGOING',
-  label: 'NORMAL',
-  cover: '',
-  description: '',
-  author: '',
-  artist: '',
-  is18Plus: false,
-  isPremium: false,
-  published: true,
 }
 
 export default function AdminSeriesPage() {
@@ -40,35 +21,60 @@ export default function AdminSeriesPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [search, setSearch] = useState('')
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [form, setForm] = useState(emptyForm)
+  const [type, setType] = useState('')
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [showForm, setShowForm] = useState(false)
+  const [error, setError] = useState('')
+
+  const [form, setForm] = useState({
+    title: '',
+    slug: '',
+    type: 'MANHWA',
+    description: '',
+    cover: '',
+  })
 
   async function loadSeries() {
     try {
       setLoading(true)
+      setError('')
 
       const params = new URLSearchParams()
 
-      if (search) {
-        params.set('search', search)
+      if (search.trim()) {
+        params.set('search', search.trim())
       }
+
+      if (type) {
+        params.set('type', type)
+      }
+
+      params.set('page', String(page))
+      params.set('limit', '20')
 
       const response = await fetch(
-        `/api/admin/series?${params.toString()}`
+        `/api/admin/series?${params.toString()}`,
+        {
+          cache: 'no-store',
+        }
       )
 
-      const data = await response.json()
+      const result = await response.json()
 
-      if (!response.ok) {
-        throw new Error(data.message || 'Gagal mengambil series')
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.message || 'Gagal mengambil series'
+        )
       }
 
-      setSeries(data.series || [])
-    } catch (error) {
-      alert(
-        error instanceof Error
-          ? error.message
-          : 'Gagal mengambil series'
+      setSeries(result.data || [])
+      setTotalPages(result.pagination?.totalPages || 1)
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Terjadi kesalahan'
       )
     } finally {
       setLoading(false)
@@ -77,50 +83,30 @@ export default function AdminSeriesPage() {
 
   useEffect(() => {
     loadSeries()
-  }, [])
+  }, [page, type])
 
-  function updateField(
-    field: keyof typeof emptyForm,
-    value: string | boolean
-  ) {
+  function makeSlug(value: string) {
+    return value
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+  }
+
+  function handleTitleChange(value: string) {
     setForm(current => ({
       ...current,
-      [field]: value,
+      title: value,
+      slug: current.slug || makeSlug(value),
     }))
   }
 
-  function startEdit(item: Series) {
-    setEditingId(item.id)
-
-    setForm({
-      ...emptyForm,
-      title: item.title,
-      slug: item.slug,
-      type: item.type,
-      status: item.status,
-      label: item.label,
-      cover: item.cover || '',
-      published: item.published,
-      isPremium: item.isPremium,
-      is18Plus: item.is18Plus,
-    })
-
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth',
-    })
-  }
-
-  function resetForm() {
-    setEditingId(null)
-    setForm(emptyForm)
-  }
-
-  async function saveSeries(event: React.FormEvent) {
+  async function createSeries(event: FormEvent) {
     event.preventDefault()
 
     if (!form.title.trim() || !form.slug.trim()) {
-      alert('Title dan slug wajib diisi')
+      alert('Title dan slug wajib diisi.')
       return
     }
 
@@ -128,295 +114,360 @@ export default function AdminSeriesPage() {
       setSaving(true)
 
       const response = await fetch('/api/admin/series', {
-        method: editingId ? 'PATCH' : 'POST',
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(
-          editingId
-            ? {
-                id: editingId,
-                ...form,
-              }
-            : form
-        ),
+        body: JSON.stringify(form),
       })
 
-      const data = await response.json()
+      const result = await response.json()
 
-      if (!response.ok) {
+      if (!response.ok || !result.success) {
         throw new Error(
-          data.message || 'Gagal menyimpan series'
+          result.message || 'Gagal membuat series'
         )
       }
 
-      resetForm()
+      setForm({
+        title: '',
+        slug: '',
+        type: 'MANHWA',
+        description: '',
+        cover: '',
+      })
+
+      setShowForm(false)
+      setPage(1)
       await loadSeries()
-    } catch (error) {
+    } catch (err) {
       alert(
-        error instanceof Error
-          ? error.message
-          : 'Gagal menyimpan series'
+        err instanceof Error
+          ? err.message
+          : 'Gagal membuat series'
       )
     } finally {
       setSaving(false)
     }
   }
 
-  async function deleteSeries(id: string) {
-    const confirmed = window.confirm(
-      'Yakin ingin menghapus series ini? Semua chapter terkait juga dapat ikut terhapus.'
-    )
-
-    if (!confirmed) return
-
-    const response = await fetch('/api/admin/series', {
-      method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ id }),
-    })
-
-    const data = await response.json()
-
-    if (!response.ok) {
-      alert(data.message || 'Gagal menghapus series')
-      return
-    }
-
-    await loadSeries()
+  function handleSearch(event: FormEvent) {
+    event.preventDefault()
+    setPage(1)
+    loadSeries()
   }
 
   return (
-    <main className="min-h-screen bg-black px-4 py-6 text-white">
+    <main className="min-h-screen bg-[#05070a] px-4 py-6 text-white md:px-8">
       <div className="mx-auto max-w-7xl">
-        <h1 className="mb-6 text-2xl font-bold">
-          Manajemen Series
-        </h1>
 
-        <form
-          onSubmit={saveSeries}
-          className="mb-8 rounded-xl border border-white/10 bg-white/5 p-5"
-        >
-          <h2 className="mb-4 text-lg font-semibold">
-            {editingId ? 'Edit Series' : 'Tambah Series'}
-          </h2>
+        {/* HEADER */}
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <input
-              value={form.title}
-              onChange={e =>
-                updateField('title', e.target.value)
-              }
-              placeholder="Judul"
-              className="rounded-lg border border-white/10 bg-black px-4 py-3"
-            />
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">
+              Admin Series
+            </h1>
 
-            <input
-              value={form.slug}
-              onChange={e =>
-                updateField('slug', e.target.value)
-              }
-              placeholder="slug-contoh"
-              className="rounded-lg border border-white/10 bg-black px-4 py-3"
-            />
-
-            <select
-              value={form.type}
-              onChange={e =>
-                updateField('type', e.target.value)
-              }
-              className="rounded-lg border border-white/10 bg-black px-4 py-3"
-            >
-              <option value="MANGA">Manga</option>
-              <option value="MANHWA">Manhwa</option>
-              <option value="MANHUA">Manhua</option>
-              <option value="NOVEL">Novel</option>
-              <option value="ONE_SHOT">One Shot</option>
-            </select>
-
-            <select
-              value={form.status}
-              onChange={e =>
-                updateField('status', e.target.value)
-              }
-              className="rounded-lg border border-white/10 bg-black px-4 py-3"
-            >
-              <option value="ONGOING">Ongoing</option>
-              <option value="COMPLETED">Completed</option>
-              <option value="HIATUS">Hiatus</option>
-            </select>
-
-            <select
-              value={form.label}
-              onChange={e =>
-                updateField('label', e.target.value)
-              }
-              className="rounded-lg border border-white/10 bg-black px-4 py-3"
-            >
-              <option value="NORMAL">Normal</option>
-              <option value="ADULT">Adult</option>
-              <option value="GORE">Gore</option>
-              <option value="PREMIUM">Premium</option>
-            </select>
-
-            <input
-              value={form.cover}
-              onChange={e =>
-                updateField('cover', e.target.value)
-              }
-              placeholder="URL cover"
-              className="rounded-lg border border-white/10 bg-black px-4 py-3"
-            />
+            <p className="mt-1 text-sm text-gray-400">
+              Kelola manga, manhwa, manhua, novel, dan
+              series Ellaria.
+            </p>
           </div>
-
-          <textarea
-            value={form.description}
-            onChange={e =>
-              updateField('description', e.target.value)
-            }
-            placeholder="Deskripsi"
-            className="mt-4 min-h-28 w-full rounded-lg border border-white/10 bg-black px-4 py-3"
-          />
-
-          <div className="mt-4 flex flex-wrap gap-5">
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={form.is18Plus}
-                onChange={e =>
-                  updateField('is18Plus', e.target.checked)
-                }
-              />
-              18+
-            </label>
-
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={form.isPremium}
-                onChange={e =>
-                  updateField('isPremium', e.target.checked)
-                }
-              />
-              Premium
-            </label>
-
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={form.published}
-                onChange={e =>
-                  updateField('published', e.target.checked)
-                }
-              />
-              Published
-            </label>
-          </div>
-
-          <div className="mt-5 flex gap-2">
-            <button
-              type="submit"
-              disabled={saving}
-              className="rounded-lg bg-blue-500 px-5 py-3 font-semibold disabled:opacity-50"
-            >
-              {saving
-                ? 'Menyimpan...'
-                : editingId
-                  ? 'Simpan Perubahan'
-                  : 'Tambah Series'}
-            </button>
-
-            {editingId && (
-              <button
-                type="button"
-                onClick={resetForm}
-                className="rounded-lg bg-white/10 px-5 py-3"
-              >
-                Batal
-              </button>
-            )}
-          </div>
-        </form>
-
-        <div className="mb-5 flex gap-2">
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === 'Enter') {
-                loadSeries()
-              }
-            }}
-            placeholder="Cari series..."
-            className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3"
-          />
 
           <button
-            onClick={loadSeries}
-            className="rounded-lg bg-blue-500 px-5 py-3 font-semibold"
+            type="button"
+            onClick={() => setShowForm(current => !current)}
+            className="rounded-xl bg-[#42A5F5] px-5 py-3 text-sm font-semibold text-black transition hover:opacity-90"
           >
-            Cari
+            {showForm ? 'Tutup Form' : '+ Tambah Series'}
           </button>
         </div>
 
-        {loading ? (
-          <div className="py-10 text-center">
-            Memuat series...
-          </div>
-        ) : series.length === 0 ? (
-          <div className="rounded-xl border border-white/10 bg-white/5 p-8 text-center">
-            Belum ada series.
-          </div>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {series.map(item => (
-              <div
-                key={item.id}
-                className="overflow-hidden rounded-xl border border-white/10 bg-white/5"
-              >
-                {item.cover && (
-                  <img
-                    src={item.cover}
-                    alt={item.title}
-                    className="aspect-video w-full object-cover"
-                  />
-                )}
+        {/* CREATE FORM */}
 
-                <div className="p-4">
-                  <h3 className="font-semibold">
-                    {item.title}
-                  </h3>
+        {showForm && (
+          <form
+            onSubmit={createSeries}
+            className="mb-6 rounded-2xl border border-white/10 bg-white/[0.03] p-5"
+          >
+            <h2 className="mb-4 text-lg font-semibold">
+              Tambah Series
+            </h2>
 
-                  <p className="mt-1 text-sm text-white/50">
-                    {item.type} · {item.status}
-                  </p>
+            <div className="grid gap-4 md:grid-cols-2">
 
-                  <p className="mt-2 text-sm text-white/60">
-                    {item._count?.chapters || 0} chapter
-                  </p>
+              <div>
+                <label className="mb-2 block text-xs text-gray-400">
+                  Judul
+                </label>
 
-                  <div className="mt-4 flex gap-2">
-                    <button
-                      onClick={() => startEdit(item)}
-                      className="rounded bg-white/10 px-3 py-2 text-sm"
-                    >
-                      Edit
-                    </button>
-
-                    <button
-                      onClick={() => deleteSeries(item.id)}
-                      className="rounded bg-red-500/20 px-3 py-2 text-sm"
-                    >
-                      Hapus
-                    </button>
-                  </div>
-                </div>
+                <input
+                  value={form.title}
+                  onChange={event =>
+                    handleTitleChange(event.target.value)
+                  }
+                  placeholder="Contoh: Solo Leveling"
+                  className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm outline-none focus:border-[#42A5F5]"
+                />
               </div>
-            ))}
+
+              <div>
+                <label className="mb-2 block text-xs text-gray-400">
+                  Slug
+                </label>
+
+                <input
+                  value={form.slug}
+                  onChange={event =>
+                    setForm(current => ({
+                      ...current,
+                      slug: makeSlug(event.target.value),
+                    }))
+                  }
+                  placeholder="solo-leveling"
+                  className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm outline-none focus:border-[#42A5F5]"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-xs text-gray-400">
+                  Tipe
+                </label>
+
+                <select
+                  value={form.type}
+                  onChange={event =>
+                    setForm(current => ({
+                      ...current,
+                      type: event.target.value,
+                    }))
+                  }
+                  className="w-full rounded-xl border border-white/10 bg-[#0b1016] px-4 py-3 text-sm outline-none focus:border-[#42A5F5]"
+                >
+                  <option value="MANHWA">MANHWA</option>
+                  <option value="MANGA">MANGA</option>
+                  <option value="MANHUA">MANHUA</option>
+                  <option value="NOVEL">NOVEL</option>
+                  <option value="ONE_SHOT">ONE SHOT</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-xs text-gray-400">
+                  URL Cover
+                </label>
+
+                <input
+                  value={form.cover}
+                  onChange={event =>
+                    setForm(current => ({
+                      ...current,
+                      cover: event.target.value,
+                    }))
+                  }
+                  placeholder="https://..."
+                  className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm outline-none focus:border-[#42A5F5]"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="mb-2 block text-xs text-gray-400">
+                  Deskripsi
+                </label>
+
+                <textarea
+                  value={form.description}
+                  onChange={event =>
+                    setForm(current => ({
+                      ...current,
+                      description: event.target.value,
+                    }))
+                  }
+                  rows={4}
+                  placeholder="Deskripsi series..."
+                  className="w-full resize-none rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm outline-none focus:border-[#42A5F5]"
+                />
+              </div>
+
+            </div>
+
+            <button
+              type="submit"
+              disabled={saving}
+              className="mt-5 rounded-xl bg-[#42A5F5] px-6 py-3 text-sm font-semibold text-black disabled:opacity-50"
+            >
+              {saving ? 'Menyimpan...' : 'Simpan Series'}
+            </button>
+          </form>
+        )}
+
+        {/* SEARCH */}
+
+        <div className="mb-6 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+          <form
+            onSubmit={handleSearch}
+            className="flex flex-col gap-3 md:flex-row"
+          >
+            <input
+              value={search}
+              onChange={event =>
+                setSearch(event.target.value)
+              }
+              placeholder="Cari judul atau slug..."
+              className="min-h-[44px] flex-1 rounded-xl border border-white/10 bg-black/30 px-4 text-sm outline-none focus:border-[#42A5F5]"
+            />
+
+            <select
+              value={type}
+              onChange={event => {
+                setType(event.target.value)
+                setPage(1)
+              }}
+              className="min-h-[44px] rounded-xl border border-white/10 bg-[#0b1016] px-4 text-sm outline-none focus:border-[#42A5F5]"
+            >
+              <option value="">Semua Tipe</option>
+              <option value="MANHWA">MANHWA</option>
+              <option value="MANGA">MANGA</option>
+              <option value="MANHUA">MANHUA</option>
+              <option value="NOVEL">NOVEL</option>
+              <option value="ONE_SHOT">ONE SHOT</option>
+            </select>
+
+            <button
+              type="submit"
+              className="min-h-[44px] rounded-xl bg-[#42A5F5] px-6 text-sm font-semibold text-black"
+            >
+              Cari
+            </button>
+          </form>
+        </div>
+
+        {error && (
+          <div className="mb-5 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
+            {error}
           </div>
         )}
+
+        {/* SERIES LIST */}
+
+        <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
+
+          {loading ? (
+            <div className="p-10 text-center text-sm text-gray-400">
+              Memuat series...
+            </div>
+          ) : series.length === 0 ? (
+            <div className="p-10 text-center text-sm text-gray-400">
+              Belum ada series.
+            </div>
+          ) : (
+            <div className="divide-y divide-white/10">
+
+              {series.map(item => (
+                <div
+                  key={item.id}
+                  className="p-4 hover:bg-white/[0.02]"
+                >
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+
+                    {/* COVER */}
+
+                    <div className="h-24 w-16 shrink-0 overflow-hidden rounded-lg bg-white/5">
+                      {item.cover ? (
+                        <img
+                          src={item.cover}
+                          alt={item.title}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center text-[10px] text-gray-500">
+                          NO COVER
+                        </div>
+                      )}
+                    </div>
+
+                    {/* INFO */}
+
+                    <div className="min-w-0 flex-1">
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="font-semibold">
+                          {item.title}
+                        </h3>
+
+                        <span className="rounded-md border border-white/10 px-2 py-1 text-[10px] text-gray-400">
+                          {item.type}
+                        </span>
+                      </div>
+
+                      <p className="mt-1 text-xs text-gray-500">
+                        /{item.slug}
+                      </p>
+
+                      {item.description && (
+                        <p className="mt-2 line-clamp-2 text-xs text-gray-400">
+                          {item.description}
+                        </p>
+                      )}
+
+                      <div className="mt-2 flex flex-wrap gap-3 text-[11px] text-gray-500">
+                        <span>
+                          {item._count?.chapters || 0} Chapters
+                        </span>
+
+                        <span>
+                          {item._count?.bookmarks || 0} Bookmarks
+                        </span>
+                      </div>
+
+                    </div>
+
+                  </div>
+                </div>
+              ))}
+
+            </div>
+          )}
+
+        </div>
+
+        {/* PAGINATION */}
+
+        <div className="mt-5 flex items-center justify-center gap-3">
+
+          <button
+            type="button"
+            disabled={page <= 1 || loading}
+            onClick={() =>
+              setPage(current =>
+                Math.max(current - 1, 1)
+              )
+            }
+            className="rounded-lg border border-white/10 px-4 py-2 text-sm disabled:opacity-30"
+          >
+            Sebelumnya
+          </button>
+
+          <span className="text-sm text-gray-400">
+            {page} / {totalPages}
+          </span>
+
+          <button
+            type="button"
+            disabled={page >= totalPages || loading}
+            onClick={() =>
+              setPage(current =>
+                Math.min(current + 1, totalPages)
+              )
+            }
+            className="rounded-lg border border-white/10 px-4 py-2 text-sm disabled:opacity-30"
+          >
+            Berikutnya
+          </button>
+
+        </div>
+
       </div>
     </main>
   )
