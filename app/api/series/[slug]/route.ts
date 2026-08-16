@@ -1,9 +1,15 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
 
+type Params = {
+  params: {
+    slug: string
+  }
+}
+
 export async function GET(
   _req: Request,
-  { params }: { params: { slug: string } }
+  { params }: Params
 ) {
   try {
     const series = await prisma.series.findUnique({
@@ -16,6 +22,7 @@ export async function GET(
             genre: true,
           },
         },
+
         chapters: {
           where: {
             isPublished: true,
@@ -37,6 +44,15 @@ export async function GET(
             createdAt: true,
           },
         },
+
+        owner: {
+          select: {
+            id: true,
+            username: true,
+            avatar: true,
+            role: true,
+          },
+        },
       },
     })
 
@@ -46,11 +62,20 @@ export async function GET(
           success: false,
           message: 'Series tidak ditemukan',
         },
-        {
-          status: 404,
-        }
+        { status: 404 }
       )
     }
+
+    await prisma.series.update({
+      where: {
+        id: series.id,
+      },
+      data: {
+        views: {
+          increment: 1,
+        },
+      },
+    })
 
     return NextResponse.json({
       success: true,
@@ -64,9 +89,7 @@ export async function GET(
         success: false,
         message: 'Gagal mengambil detail series',
       },
-      {
-        status: 500,
-      }
+      { status: 500 }
     )
   }
 }
