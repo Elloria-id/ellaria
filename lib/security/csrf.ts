@@ -1,4 +1,5 @@
 import crypto from 'crypto'
+import type { NextRequest } from 'next/server'
 
 export class CSRFProtection {
   static generateToken(): string {
