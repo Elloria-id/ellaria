@@ -1,14 +1,16 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
+import type { Session } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth'
 import { prisma } from '@/lib/db/prisma'
-import { Role } from '@prisma/client'
+import { Role, Prisma } from '@prisma/client'
 
-async function checkAdmin() {
+type AdminCheckResult = { authorized: boolean; session: Session | null }
+
+async function checkAdmin(): Promise<AdminCheckResult> {
   const session = await getServerSession(authOptions)
-
   if (!session?.user?.id) {
-    return { authorized: false, session: null as unknown }
+    return { authorized: false, session: null }
   }
 
   const user = await prisma.user.findUnique({
@@ -28,7 +30,7 @@ export async function GET(req: Request) {
   try {
     const auth = await checkAdmin()
 
-    if (!auth.authorized) {
+    if (!auth.authorized || !auth.session || !auth.session.user?.id) {
       return NextResponse.json({ success: false, message: 'Tidak memiliki akses' }, { status: 403 })
     }
 
@@ -39,27 +41,17 @@ export async function GET(req: Request) {
     const page = Math.max(Number.parseInt(searchParams.get('page') || '1', 10), 1)
     const limit = Math.min(Math.max(Number.parseInt(searchParams.get('limit') || '20', 10), 1), 100)
 
-    const where: Record<string, unknown> = {}
+    const where: Prisma.UserWhereInput = {}
 
     if (search) {
       where.OR = [
-        {
-          username: {
-            contains: search,
-            mode: 'insensitive',
-          },
-        },
-        {
-          email: {
-            contains: search,
-            mode: 'insensitive',
-          },
-        },
+        { username: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
       ]
     }
 
     if (role && Object.values(Role).includes(role as Role)) {
-      ;(where as any).role = role as Role
+      where.role = role as Role
     }
 
     const [users, total] = await prisma.$transaction([
@@ -92,24 +84,16 @@ export async function GET(req: Request) {
         },
       }),
 
-      prisma.user.count({
-        where,
-      }),
+      prisma.user.count({ where }),
     ])
 
     return NextResponse.json({
       success: true,
       data: users,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     })
   } catch (error) {
     console.error('ADMIN USERS GET ERROR:', error)
-
     return NextResponse.json({ success: false, message: 'Gagal mengambil data user' }, { status: 500 })
   }
 }
@@ -119,7 +103,7 @@ export async function PATCH(req: Request) {
   try {
     const auth = await checkAdmin()
 
-    if (!auth.authorized || !auth.session?.user?.id) {
+    if (!auth.authorized || !auth.session || !auth.session.user?.id) {
       return NextResponse.json({ success: false, message: 'Tidak memiliki akses' }, { status: 403 })
     }
 
@@ -135,29 +119,19 @@ export async function PATCH(req: Request) {
 
     const targetUser = await prisma.user.findUnique({
       where: { id: userId },
-      select: {
-        id: true,
-        username: true,
-        role: true,
-        isBanned: true,
-      },
+      select: { id: true, username: true, role: true, isBanned: true },
     })
 
     if (!targetUser) {
       return NextResponse.json({ success: false, message: 'User tidak ditemukan' }, { status: 404 })
     }
 
-    const currentAdmin = await prisma.user.findUnique({
-      where: { id: auth.session.user.id },
-      select: { role: true },
-    })
+    const currentAdmin = await prisma.user.findUnique({ where: { id: auth.session.user.id }, select: { role: true } })
 
-    // Founder tidak boleh diturunkan oleh ADMIN.
     if (targetUser.role === Role.FOUNDER && currentAdmin?.role !== Role.FOUNDER) {
       return NextResponse.json({ success: false, message: 'Akun Founder tidak dapat diubah oleh Admin' }, { status: 403 })
     }
 
-    // Hanya Founder yang boleh memberikan / mencabut role FOUNDER.
     if (newRole === Role.FOUNDER && currentAdmin?.role !== Role.FOUNDER) {
       return NextResponse.json({ success: false, message: 'Hanya Founder yang dapat mengatur role Founder' }, { status: 403 })
     }
