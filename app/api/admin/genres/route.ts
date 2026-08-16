@@ -1,28 +1,39 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/db/prisma'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth'
-import { z } from 'zod'
+import { prisma } from '@/lib/db/prisma'
+import { Role } from '@prisma/client'
 
-const genreSchema = z.object({
-  name: z.string().min(1),
-  slug: z.string().min(1),
-  description: z.string().optional(),
-  isActive: z.boolean().default(true),
-})
+async function isAdmin() {
+  const session = await getServerSession(authOptions)
 
-export async function GET(req: Request) {
+  if (!session?.user?.id) return false
+
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { role: true, isBanned: true },
+  })
+
+  return !!(
+    user &&
+    !user.isBanned &&
+    [Role.ADMIN, Role.FOUNDER].includes(user.role)
+  )
+}
+
+export async function GET() {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session || !['ADMIN', 'FOUNDER'].includes(session.user.role)) {
+    if (!(await isAdmin())) {
       return NextResponse.json(
-        { success: false, message: 'Unauthorized' },
-        { status: 401 }
+        { success: false, message: 'Tidak memiliki akses' },
+        { status: 403 }
       )
     }
 
     const genres = await prisma.genre.findMany({
-      orderBy: { name: 'asc' },
+      orderBy: {
+        name: 'asc',
+      },
     })
 
     return NextResponse.json({
@@ -30,8 +41,13 @@ export async function GET(req: Request) {
       data: genres,
     })
   } catch (error) {
+    console.error(error)
+
     return NextResponse.json(
-      { success: false, message: 'Internal server error' },
+      {
+        success: false,
+        message: 'Gagal mengambil genre',
+      },
       { status: 500 }
     )
   }
@@ -39,19 +55,36 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session || !['ADMIN', 'FOUNDER'].includes(session.user.role)) {
+    if (!(await isAdmin())) {
       return NextResponse.json(
-        { success: false, message: 'Unauthorized' },
-        { status: 401 }
+        { success: false, message: 'Tidak memiliki akses' },
+        { status: 403 }
       )
     }
 
     const body = await req.json()
-    const validated = genreSchema.parse(body)
+
+    const name = String(body.name || '').trim()
+    const slug = String(body.slug || '')
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+
+    if (!name || !slug) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Nama genre wajib diisi',
+        },
+        { status: 400 }
+      )
+    }
 
     const genre = await prisma.genre.create({
-      data: validated,
+      data: {
+        name,
+        slug,
+      },
     })
 
     return NextResponse.json({
@@ -59,87 +92,13 @@ export async function POST(req: Request) {
       data: genre,
     })
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { success: false, message: 'Input tidak valid' },
-        { status: 400 }
-      )
-    }
+    console.error(error)
+
     return NextResponse.json(
-      { success: false, message: 'Internal server error' },
-      { status: 500 }
-    )
-  }
-}
-
-export async function PUT(req: Request) {
-  try {
-    const session = await getServerSession(authOptions)
-    if (!session || !['ADMIN', 'FOUNDER'].includes(session.user.role)) {
-      return NextResponse.json(
-        { success: false, message: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
-
-    const body = await req.json()
-    const { id, ...data } = body
-
-    if (!id) {
-      return NextResponse.json(
-        { success: false, message: 'id diperlukan' },
-        { status: 400 }
-      )
-    }
-
-    const genre = await prisma.genre.update({
-      where: { id },
-      data,
-    })
-
-    return NextResponse.json({
-      success: true,
-      data: genre,
-    })
-  } catch (error) {
-    return NextResponse.json(
-      { success: false, message: 'Internal server error' },
-      { status: 500 }
-    )
-  }
-}
-
-export async function DELETE(req: Request) {
-  try {
-    const session = await getServerSession(authOptions)
-    if (!session || !['ADMIN', 'FOUNDER'].includes(session.user.role)) {
-      return NextResponse.json(
-        { success: false, message: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
-
-    const url = new URL(req.url)
-    const id = url.searchParams.get('id')
-
-    if (!id) {
-      return NextResponse.json(
-        { success: false, message: 'id diperlukan' },
-        { status: 400 }
-      )
-    }
-
-    await prisma.genre.delete({
-      where: { id },
-    })
-
-    return NextResponse.json({
-      success: true,
-      message: 'Genre dihapus',
-    })
-  } catch (error) {
-    return NextResponse.json(
-      { success: false, message: 'Internal server error' },
+      {
+        success: false,
+        message: 'Gagal membuat genre',
+      },
       { status: 500 }
     )
   }
