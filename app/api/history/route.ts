@@ -1,39 +1,47 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/db/prisma'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth'
+import { prisma } from '@/lib/db/prisma'
 
-export async function GET(req: Request) {
+export async function GET() {
   try {
     const session = await getServerSession(authOptions)
-    if (!session) {
+
+    if (!session?.user?.id) {
       return NextResponse.json(
         { success: false, message: 'Unauthorized' },
         { status: 401 }
       )
     }
 
-    const url = new URL(req.url)
-    const limit = Number(url.searchParams.get('limit')) || 50
-    const type = url.searchParams.get('type') // MANGA, MANHWA, etc
-
-    const where: any = { userId: session.user.id }
-    if (type) {
-      where.series = { type }
-    }
-
     const history = await prisma.readingHistory.findMany({
-      where,
+      where: {
+        userId: session.user.id,
+      },
+      orderBy: {
+        lastReadAt: 'desc',
+      },
       include: {
         series: {
-          include: {
-            genres: { include: { genre: true } },
+          select: {
+            id: true,
+            title: true,
+            slug: true,
+            cover: true,
+            type: true,
+            status: true,
+            label: true,
           },
         },
-        chapter: true,
+        chapter: {
+          select: {
+            id: true,
+            chapterNumber: true,
+            title: true,
+          },
+        },
       },
-      orderBy: { lastReadAt: 'desc' },
-      take: limit,
+      take: 100,
     })
 
     return NextResponse.json({
@@ -41,63 +49,97 @@ export async function GET(req: Request) {
       data: history,
     })
   } catch (error) {
+    console.error('HISTORY_GET_ERROR:', error)
+
     return NextResponse.json(
-      { success: false, message: 'Internal server error' },
+      {
+        success: false,
+        message: 'Gagal mengambil riwayat',
+      },
       { status: 500 }
     )
   }
 }
 
-export async function DELETE(req: Request) {
+export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session) {
+
+    if (!session?.user?.id) {
       return NextResponse.json(
         { success: false, message: 'Unauthorized' },
         { status: 401 }
       )
     }
 
-    const url = new URL(req.url)
-    const all = url.searchParams.get('all')
-    const id = url.searchParams.get('id')
+    const body = await req.json()
 
-    if (all === 'true') {
-      await prisma.readingHistory.deleteMany({
-        where: { userId: session.user.id },
-      })
-    } else if (id) {
-      const history = await prisma.readingHistory.findFirst({
-        where: {
-          id,
-          userId: session.user.id,
-        },
-      })
+    const seriesId = String(body.seriesId || '')
+    const chapterId = String(body.chapterId || '')
+    const progress = Number(body.progress || 0)
 
-      if (!history) {
-        return NextResponse.json(
-          { success: false, message: 'History tidak ditemukan' },
-          { status: 404 }
-        )
-      }
-
-      await prisma.readingHistory.delete({
-        where: { id },
-      })
-    } else {
+    if (!seriesId || !chapterId) {
       return NextResponse.json(
-        { success: false, message: 'Parameter tidak valid' },
+        {
+          success: false,
+          message: 'seriesId dan chapterId diperlukan',
+        },
         { status: 400 }
       )
     }
 
+    const chapter = await prisma.chapter.findFirst({
+      where: {
+        id: chapterId,
+        seriesId,
+        isPublished: true,
+      },
+    })
+
+    if (!chapter) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Chapter tidak ditemukan',
+        },
+        { status: 404 }
+      )
+    }
+
+    const safeProgress = Math.max(
+      0,
+      Math.min(100, progress)
+    )
+
+    const history = await prisma.readingHistory.upsert({
+      where: {
+        id: `${session.user.id}_${seriesId}_${chapterId}`,
+      },
+      create: {
+        id: `${session.user.id}_${seriesId}_${chapterId}`,
+        userId: session.user.id,
+        seriesId,
+        chapterId,
+        progress: safeProgress,
+      },
+      update: {
+        progress: safeProgress,
+        lastReadAt: new Date(),
+      },
+    })
+
     return NextResponse.json({
       success: true,
-      message: 'History dihapus',
+      data: history,
     })
   } catch (error) {
+    console.error('HISTORY_POST_ERROR:', error)
+
     return NextResponse.json(
-      { success: false, message: 'Internal server error' },
+      {
+        success: false,
+        message: 'Gagal menyimpan riwayat',
+      },
       { status: 500 }
     )
   }
