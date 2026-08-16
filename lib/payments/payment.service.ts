@@ -428,28 +428,32 @@ export class PaymentService {
           result = await provider.getPaymentStatus(providerRef)
         }
 
-        if (result?.status === 'PAID') {
-          await this.processPaymentInternal(
-            providerRef,
-            payment.provider
-          )
+ if (result?.status === 'PAID') {
+  if (!payment.provider) {
+    throw new Error('Payment provider tidak ditemukan')
+  }
 
-          const updated = await prisma.payment.findUnique({
-            where: { id: paymentId },
-            include: {
-              package: true,
-              user: {
-                select: {
-                  id: true,
-                  username: true,
-                  avatar: true,
-                },
-              },
-            },
-          })
+  await this.processPaymentInternal(
+    providerRef,
+    payment.provider
+  )
 
-          return updated
-        }
+  const updated = await prisma.payment.findUnique({
+    where: { id: paymentId },
+    include: {
+      package: true,
+      user: {
+        select: {
+          id: true,
+          username: true,
+          avatar: true,
+        },
+      },
+    },
+  })
+
+  return updated
+}
       } catch {
         // Keep current payment status if provider verification fails.
       }
