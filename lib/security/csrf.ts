@@ -10,13 +10,12 @@ export class CSRFProtection {
     return token === storedToken
   }
 
-  static middleware(req: Request): boolean {
+  static middleware(req: NextRequest): boolean {
     // Skip for GET requests
     if (req.method === 'GET') return true
 
     const csrfToken = req.headers.get('x-csrf-token')
     const storedToken = req.cookies.get('csrf-token')?.value
-
     if (!csrfToken || !storedToken) {
       return false
     }
