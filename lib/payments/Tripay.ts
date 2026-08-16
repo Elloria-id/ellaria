@@ -1,119 +1,196 @@
-import { PaymentProvider } from './PaymentProvider'
 import crypto from 'crypto'
+import {
+  CreatePaymentParams,
+  PaymentProvider,
+  PaymentResult,
+} from './PaymentProvider'
+
+const TRIPAY_BASE_URL =
+  process.env.TRIPAY_BASE_URL ||
+  'https://tripay.co.id/api-sandbox'
 
 export class TripayProvider implements PaymentProvider {
-  name = 'tripay'
-
   private apiKey: string
+  private privateKey: string
   private merchantCode: string
-  private baseUrl: string
 
   constructor() {
     this.apiKey = process.env.TRIPAY_API_KEY || ''
+    this.privateKey = process.env.TRIPAY_PRIVATE_KEY || ''
     this.merchantCode = process.env.TRIPAY_MERCHANT_CODE || ''
-    this.baseUrl = process.env.NODE_ENV === 'production'
-      ? 'https://tripay.co.id/api'
-      : 'https://tripay.co.id/api-sandbox'
+
+    if (
+      !this.apiKey ||
+      !this.privateKey ||
+      !this.merchantCode
+    ) {
+      throw new Error(
+        'Konfigurasi TriPay belum lengkap'
+      )
+    }
   }
 
   async createPayment(
-    userId: string,
-    packageId: string,
-    amount: number,
-    metadata?: any
-  ) {
-    const merchantRef = `ELLARIA-${Date.now()}-${userId.slice(0, 6)}`
+    params: CreatePaymentParams
+  ): Promise<PaymentResult> {
+    const signature = crypto
+      .createHmac('sha256', this.privateKey)
+      .update(
+        this.merchantCode +
+          params.merchantRef +
+          params.amount
+      )
+      .digest('hex')
 
     const payload = {
-      method: 'QRIS',
-      merchant_code: this.merchantCode,
-      merchant_ref: merchantRef,
-      amount: amount,
-      customer_name: metadata?.username || 'User',
-      customer_email: metadata?.email || 'user@ellaria.com',
-      customer_phone: metadata?.phone || '',
+      method: params.method,
+      merchant_ref: params.merchantRef,
+      amount: params.amount,
+      customer_name: params.customerName,
+      customer_email: params.customerEmail,
+      customer_phone: params.customerPhone || '',
       order_items: [
         {
-          name: metadata?.description || 'Ellaria Coin Package',
-          price: amount,
+          sku: params.merchantRef,
+          name: params.itemName,
+          price: params.amount,
           quantity: 1,
         },
       ],
-      return_url: `${process.env.NEXT_PUBLIC_APP_URL}/payment/success`,
-      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/payment/cancel`,
-      callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/payment`,
-      signature: this.generateSignature(merchantRef, amount),
+      callback_url:
+        params.callbackUrl ||
+        process.env.TRIPAY_CALLBACK_URL,
+      return_url:
+        params.returnUrl ||
+        process.env.TRIPAY_RETURN_URL,
+      expired_time:
+        Math.floor(Date.now() / 1000) +
+        60 * 60,
+      signature,
     }
 
-    const response = await fetch(`${this.baseUrl}/transaction/create`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.apiKey}`,
-      },
-      body: JSON.stringify(payload),
-    })
-
-    const data = await response.json()
-
-    if (!response.ok) {
-      throw new Error(`Tripay error: ${data.message || 'Unknown error'}`)
-    }
-
-    return {
-      paymentId: merchantRef,
-      providerReference: data.data.reference,
-      paymentUrl: data.data.checkout_url,
-      qrImage: data.data.qr_string,
-      expiresAt: new Date(data.data.expired_time * 1000),
-    }
-  }
-
-  async verifyPayment(providerReference: string) {
     const response = await fetch(
-      `${this.baseUrl}/transaction/detail?reference=${providerReference}`,
+      `${TRIPAY_BASE_URL}/transaction/create`,
       {
+        method: 'POST',
         headers: {
           Authorization: `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify(payload),
       }
     )
 
     const data = await response.json()
 
-    if (!response.ok) {
-      return { status: 'FAILED' }
+    if (!response.ok || !data.success) {
+      throw new Error(
+        data?.message ||
+          'Gagal membuat transaksi TriPay'
+      )
     }
 
-    const statusMap: Record<string, any> = {
-      'PAID': 'PAID',
-      'SETTLED': 'PAID',
-      'PENDING': 'PENDING',
-      'EXPIRED': 'EXPIRED',
-      'FAILED': 'FAILED',
-    }
+    const result = data.data
 
     return {
-      status: statusMap[data.data.status] || 'PENDING',
-      metadata: data.data,
+      success: true,
+      reference: result.reference,
+      merchantRef: result.merchant_ref,
+      amount: result.amount,
+      status: result.status,
+      checkoutUrl: result.checkout_url,
+      qrUrl:
+        result.qr_url ||
+        result.qr_url_image,
+      qrString:
+        result.qr_string ||
+        result.qrString,
+      expiredAt:
+        result.expired_time
+          ? new Date(
+              result.expired_time * 1000
+            ).toISOString()
+          : undefined,
     }
   }
 
-  verifyWebhookSignature(body: any, signature: string): boolean {
-    // Tripay menggunakan signature dengan API key
-    const expectedSignature = crypto
-      .createHmac('sha256', this.apiKey)
-      .update(JSON.stringify(body))
-      .digest('hex')
+  async getPaymentStatus(
+    reference: string
+  ): Promise<PaymentResult> {
+    const response = await fetch(
+      `${TRIPAY_BASE_URL}/transaction/detail?reference=${encodeURIComponent(
+        reference
+      )}`,
+      {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+        },
+        cache: 'no-store',
+      }
+    )
 
-    return signature === expectedSignature
+    const data = await response.json()
+
+    if (!response.ok || !data.success) {
+      throw new Error(
+        data?.message ||
+          'Gagal mengambil status pembayaran'
+      )
+    }
+
+    const result = data.data
+
+    return {
+      success: true,
+      reference: result.reference,
+      merchantRef: result.merchant_ref,
+      amount: result.amount,
+      status: result.status,
+      checkoutUrl: result.checkout_url,
+      qrUrl:
+        result.qr_url ||
+        result.qr_url_image,
+      qrString:
+        result.qr_string ||
+        result.qrString,
+      expiredAt:
+        result.expired_time
+          ? new Date(
+              result.expired_time * 1000
+            ).toISOString()
+          : undefined,
+    }
   }
 
-  private generateSignature(merchantRef: string, amount: number): string {
-    const hash = crypto
-      .createHmac('sha256', this.apiKey)
-      .update(`${this.merchantCode}${merchantRef}${amount}`)
+  validateCallback(
+    payload: unknown,
+    signature: string
+  ): boolean {
+    if (!signature || !this.privateKey) {
+      return false
+    }
+
+    const rawPayload = JSON.stringify(payload)
+
+    const expectedSignature = crypto
+      .createHmac('sha256', this.privateKey)
+      .update(rawPayload)
       .digest('hex')
-    return hash
+
+    if (
+      expectedSignature.length !==
+      signature.length
+    ) {
+      return false
+    }
+
+    return crypto.timingSafeEqual(
+      Buffer.from(expectedSignature),
+      Buffer.from(signature)
+    )
   }
 }
+
+export const tripayProvider =
+  new TripayProvider()
