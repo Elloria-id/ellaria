@@ -1,140 +1,67 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/db/prisma'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth'
+import { prisma } from '@/lib/db/prisma'
 import { z } from 'zod'
 
 const messageSchema = z.object({
-  content: z.string().min(1).max(2000),
+  content: z.string().min(1).max(3000),
   replyToId: z.string().optional(),
 })
 
-export async function GET(
-  req: Request,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const session = await getServerSession(authOptions)
-    if (!session) {
-      return NextResponse.json(
-        { success: false, message: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
-
-    const communityId = params.id
-    const url = new URL(req.url)
-    const page = Number(url.searchParams.get('page')) || 1
-    const limit = Number(url.searchParams.get('limit')) || 50
-
-    // Check membership
-    const member = await prisma.communityMember.findUnique({
-      where: {
-        communityId_userId: {
-          communityId,
-          userId: session.user.id,
-        },
-      },
-    })
-
-    if (!member) {
-      return NextResponse.json(
-        { success: false, message: 'Anda bukan anggota community ini' },
-        { status: 403 }
-      )
-    }
-
-    const [messages, total] = await Promise.all([
-      prisma.chatMessage.findMany({
-        where: { communityId },
-        skip: (page - 1) * limit,
-        take: limit,
-        include: {
-          user: {
-            select: {
-              id: true,
-              username: true,
-              avatar: true,
-              role: true,
-            },
-          },
-          replyTo: {
-            include: {
-              user: {
-                select: {
-                  id: true,
-                  username: true,
-                  avatar: true,
-                },
-              },
-            },
-          },
-        },
-        orderBy: { createdAt: 'desc' },
-      }),
-      prisma.chatMessage.count({ where: { communityId } }),
-    ])
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        messages: messages.reverse(),
-        pagination: {
-          page,
-          limit,
-          total,
-          pages: Math.ceil(total / limit),
-        },
-      },
-    })
-  } catch (error) {
-    return NextResponse.json(
-      { success: false, message: 'Internal server error' },
-      { status: 500 }
-    )
+type Params = {
+  params: {
+    id: string
   }
 }
 
-export async function POST(
+export async function GET(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: Params
 ) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session) {
+
+    if (!session?.user?.id) {
       return NextResponse.json(
-        { success: false, message: 'Unauthorized' },
+        {
+          success: false,
+          message: 'Silakan login terlebih dahulu',
+        },
         { status: 401 }
       )
     }
 
-    const communityId = params.id
-    const body = await req.json()
-    const validated = messageSchema.parse(body)
-
-    // Check membership
-    const member = await prisma.communityMember.findUnique({
-      where: {
-        communityId_userId: {
-          communityId,
-          userId: session.user.id,
+    const membership =
+      await prisma.communityMember.findUnique({
+        where: {
+          communityId_userId: {
+            communityId: params.id,
+            userId: session.user.id,
+          },
         },
-      },
-    })
+      })
 
-    if (!member) {
+    if (!membership) {
       return NextResponse.json(
-        { success: false, message: 'Anda bukan anggota community ini' },
+        {
+          success: false,
+          message: 'Kamu belum bergabung ke komunitas ini',
+        },
         { status: 403 }
       )
     }
 
-    const message = await prisma.chatMessage.create({
-      data: {
-        communityId,
-        userId: session.user.id,
-        content: validated.content,
-        replyToId: validated.replyToId,
+    const { searchParams } = new URL(req.url)
+
+    const limit = Math.min(
+      Math.max(Number(searchParams.get('limit')) || 50, 1),
+      100
+    )
+
+    const messages = await prisma.chatMessage.findMany({
+      where: {
+        communityId: params.id,
       },
       include: {
         user: {
@@ -143,85 +70,148 @@ export async function POST(
             username: true,
             avatar: true,
             role: true,
+            level: true,
+          },
+        },
+        replyTo: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                username: true,
+              },
+            },
           },
         },
       },
+      orderBy: {
+        createdAt: 'asc',
+      },
+      take: limit,
     })
 
     return NextResponse.json({
       success: true,
-      data: message,
+      messages,
     })
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { success: false, message: 'Input tidak valid' },
-        { status: 400 }
-      )
-    }
+    console.error('GET COMMUNITY MESSAGES ERROR:', error)
+
     return NextResponse.json(
-      { success: false, message: 'Internal server error' },
+      {
+        success: false,
+        message: 'Gagal mengambil pesan',
+      },
       { status: 500 }
     )
   }
 }
 
-export async function DELETE(
+export async function POST(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: Params
 ) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session) {
+
+    if (!session?.user?.id) {
       return NextResponse.json(
-        { success: false, message: 'Unauthorized' },
+        {
+          success: false,
+          message: 'Silakan login terlebih dahulu',
+        },
         { status: 401 }
       )
     }
 
-    const url = new URL(req.url)
-    const messageId = url.searchParams.get('messageId')
+    const membership =
+      await prisma.communityMember.findUnique({
+        where: {
+          communityId_userId: {
+            communityId: params.id,
+            userId: session.user.id,
+          },
+        },
+      })
 
-    if (!messageId) {
+    if (!membership) {
       return NextResponse.json(
-        { success: false, message: 'messageId diperlukan' },
-        { status: 400 }
-      )
-    }
-
-    const message = await prisma.chatMessage.findUnique({
-      where: { id: messageId },
-    })
-
-    if (!message) {
-      return NextResponse.json(
-        { success: false, message: 'Pesan tidak ditemukan' },
-        { status: 404 }
-      )
-    }
-
-    // Only owner or admin can delete
-    const isOwner = message.userId === session.user.id
-    const isModerator = ['ADMIN', 'FOUNDER', 'MODERATOR'].includes(session.user.role)
-
-    if (!isOwner && !isModerator) {
-      return NextResponse.json(
-        { success: false, message: 'Forbidden' },
+        {
+          success: false,
+          message: 'Kamu belum bergabung ke komunitas ini',
+        },
         { status: 403 }
       )
     }
 
-    await prisma.chatMessage.delete({
-      where: { id: messageId },
+    const body = await req.json()
+    const data = messageSchema.parse(body)
+
+    if (data.replyToId) {
+      const parent =
+        await prisma.chatMessage.findFirst({
+          where: {
+            id: data.replyToId,
+            communityId: params.id,
+          },
+        })
+
+      if (!parent) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: 'Pesan yang dibalas tidak ditemukan',
+          },
+          { status: 404 }
+        )
+      }
+    }
+
+    const message = await prisma.chatMessage.create({
+      data: {
+        communityId: params.id,
+        userId: session.user.id,
+        content: data.content,
+        replyToId: data.replyToId,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            avatar: true,
+            role: true,
+            level: true,
+          },
+        },
+      },
     })
 
-    return NextResponse.json({
-      success: true,
-      message: 'Pesan dihapus',
-    })
-  } catch (error) {
     return NextResponse.json(
-      { success: false, message: 'Internal server error' },
+      {
+        success: true,
+        message,
+      },
+      { status: 201 }
+    )
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Isi pesan tidak valid',
+        },
+        { status: 400 }
+      )
+    }
+
+    console.error('SEND COMMUNITY MESSAGE ERROR:', error)
+
+    return NextResponse.json(
+      {
+        success: false,
+        message: 'Gagal mengirim pesan',
+      },
       { status: 500 }
     )
   }
