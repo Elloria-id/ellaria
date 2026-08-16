@@ -1,4 +1,4 @@
-import { PaymentProvider } from './PaymentProvider'
+import type { PaymentProvider, CreatePaymentParams, PaymentResult } from './PaymentProvider'
 import crypto from 'crypto'
 
 export class DuitkuProvider implements PaymentProvider {
@@ -11,35 +11,29 @@ export class DuitkuProvider implements PaymentProvider {
   constructor() {
     this.apiKey = process.env.DUITKU_API_KEY || ''
     this.merchantCode = process.env.DUITKU_MERCHANT_CODE || ''
-    this.baseUrl = process.env.NODE_ENV === 'production'
-      ? 'https://api.duitku.com'
-      : 'https://sandbox.duitku.com'
+    this.baseUrl = process.env.NODE_ENV === 'production' ? 'https://api.duitku.com' : 'https://sandbox.duitku.com'
   }
 
-  async createPayment(
-    userId: string,
-    packageId: string,
-    amount: number,
-    metadata?: any
-  ) {
-    const merchantOrderId = `ELLARIA-${Date.now()}-${userId.slice(0, 6)}`
+  async createPayment(params: CreatePaymentParams): Promise<PaymentResult> {
+    const userId = params.userId ?? 'anonymous'
+    const merchantOrderId = params.merchantRef || `ELLARIA-${Date.now()}-${userId.slice(0, 6)}`
     const datetime = new Date().toISOString().slice(0, 19).replace(/[^0-9]/g, '')
 
     const signature = crypto
       .createHash('md5')
-      .update(`${this.merchantCode}${merchantOrderId}${amount}${datetime}${this.apiKey}`)
+      .update(`${this.merchantCode}${merchantOrderId}${params.amount}${datetime}${this.apiKey}`)
       .digest('hex')
 
     const payload = {
       merchantCode: this.merchantCode,
       merchantOrderId: merchantOrderId,
-      paymentAmount: amount,
+      paymentAmount: params.amount,
       paymentMethod: 'QRIS',
-      customerName: metadata?.username || 'User',
-      customerEmail: metadata?.email || 'user@ellaria.com',
-      customerPhone: metadata?.phone || '',
-      returnUrl: `${process.env.NEXT_PUBLIC_APP_URL}/payment/success`,
-      cancelUrl: `${process.env.NEXT_PUBLIC_APP_URL}/payment/cancel`,
+      customerName: params.customerName || 'User',
+      customerEmail: params.customerEmail || 'user@ellaria.com',
+      customerPhone: params.customerPhone || '',
+      returnUrl: params.returnUrl || `${process.env.NEXT_PUBLIC_APP_URL}/payment/success`,
+      cancelUrl: params.returnUrl || `${process.env.NEXT_PUBLIC_APP_URL}/payment/cancel`,
       signature: signature,
       expiryPeriod: 60, // menit
     }
@@ -48,8 +42,8 @@ export class DuitkuProvider implements PaymentProvider {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'apikey': this.apiKey,
-      },
+        apikey: this.apiKey,
+      } as Record<string, string>,
       body: JSON.stringify(payload),
     })
 
@@ -61,9 +55,11 @@ export class DuitkuProvider implements PaymentProvider {
 
     return {
       paymentId: merchantOrderId,
-      providerReference: data.Reference || merchantOrderId,
+      providerReference: (data.Reference as string) || merchantOrderId,
       paymentUrl: data.PaymentUrl,
       expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+      metadata: data,
+      success: true,
     }
   }
 
@@ -72,7 +68,7 @@ export class DuitkuProvider implements PaymentProvider {
       `${this.baseUrl}/api/merchant/transactionStatus?merchantCode=${this.merchantCode}&reference=${providerReference}`,
       {
         headers: {
-          'apikey': this.apiKey,
+          apikey: this.apiKey,
         },
       }
     )
@@ -83,11 +79,11 @@ export class DuitkuProvider implements PaymentProvider {
       return { status: 'FAILED' }
     }
 
-    const statusMap: Record<string, any> = {
+    const statusMap: Record<string, string> = {
       '00': 'PAID',
       '01': 'PENDING',
       '02': 'EXPIRED',
-      '03': 'FAILED',
+      '03': 'REJECTED',
     }
 
     return {
@@ -97,11 +93,9 @@ export class DuitkuProvider implements PaymentProvider {
   }
 
   verifyWebhookSignature(body: any, signature: string): boolean {
-    // Duitku menggunakan callback signature
-    // body biasanya berisi merchantOrderId, paymentAmount, status
     const expectedSignature = crypto
       .createHash('md5')
-      .update(`${this.merchantCode}${body.merchantOrderId}${body.paymentAmount}${this.apiKey}`)
+      .update(`${this.merchantCode}${(body as any).merchantOrderId}${(body as any).paymentAmount}${this.apiKey}`)
       .digest('hex')
 
     return signature === expectedSignature
