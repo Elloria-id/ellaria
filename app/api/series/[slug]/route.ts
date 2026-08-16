@@ -2,47 +2,71 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
 
 export async function GET(
-  req: Request,
+  _req: Request,
   { params }: { params: { slug: string } }
 ) {
   try {
     const series = await prisma.series.findUnique({
-      where: { slug: params.slug, published: true },
+      where: {
+        slug: params.slug,
+      },
       include: {
-        genres: { include: { genre: true } },
-        chapters: {
-          where: { isPublished: true },
-          orderBy: { chapterNumber: 'desc' },
+        genres: {
           include: {
-            images: { take: 1 },
+            genre: true,
           },
         },
-        _count: {
-          select: { chapters: true, bookmarks: true },
+        chapters: {
+          where: {
+            isPublished: true,
+          },
+          orderBy: {
+            chapterNumber: 'desc',
+          },
+          select: {
+            id: true,
+            chapterNumber: true,
+            title: true,
+            contentType: true,
+            coinPrice: true,
+            isPremium: true,
+            isLocked: true,
+            waitEnabled: true,
+            waitSeconds: true,
+            views: true,
+            createdAt: true,
+          },
         },
       },
     })
 
-    if (!series) {
+    if (!series || !series.published) {
       return NextResponse.json(
-        { success: false, message: 'Series tidak ditemukan' },
-        { status: 404 }
+        {
+          success: false,
+          message: 'Series tidak ditemukan',
+        },
+        {
+          status: 404,
+        }
       )
     }
-
-    await prisma.series.update({
-      where: { id: series.id },
-      data: { views: { increment: 1 } },
-    })
 
     return NextResponse.json({
       success: true,
       data: series,
     })
   } catch (error) {
+    console.error('SERIES_DETAIL_ERROR:', error)
+
     return NextResponse.json(
-      { success: false, message: 'Internal server error' },
-      { status: 500 }
+      {
+        success: false,
+        message: 'Gagal mengambil detail series',
+      },
+      {
+        status: 500,
+      }
     )
   }
 }
