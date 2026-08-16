@@ -1,57 +1,59 @@
 import { withAuth } from 'next-auth/middleware'
 import { NextResponse } from 'next/server'
 
+const PUBLIC_PATHS = [
+  '/',
+  '/login',
+  '/register',
+  '/search',
+  '/series',
+  '/api/auth',
+  '/api/public',
+]
+
 export default withAuth(
   function middleware(req) {
-    const path = req.nextUrl.pathname
+    const { pathname } = req.nextUrl
     const token = req.nextauth.token
 
-    if (!token) {
-      return NextResponse.redirect(
-        new URL('/login', req.url)
+    if (
+      PUBLIC_PATHS.some(
+        (path) => pathname === path || pathname.startsWith(`${path}/`)
       )
+    ) {
+      return NextResponse.next()
     }
 
-    const role = token.role as string
+    if (!token) {
+      return NextResponse.redirect(new URL('/login', req.url))
+    }
+
+    const role = String(token.role || 'USER')
 
     if (
-      path.startsWith('/admin') ||
-      path.startsWith('/api/admin')
+      pathname.startsWith('/admin') ||
+      pathname.startsWith('/api/admin')
     ) {
-      if (role !== 'ADMIN' && role !== 'FOUNDER') {
-        return NextResponse.redirect(
-          new URL('/', req.url)
-        )
+      if (!['ADMIN', 'FOUNDER'].includes(role)) {
+        return NextResponse.redirect(new URL('/', req.url))
       }
     }
 
     if (
-      path.startsWith('/creator') ||
-      path.startsWith('/api/creator')
+      pathname.startsWith('/creator') ||
+      pathname.startsWith('/api/creator')
     ) {
-      if (
-        role !== 'CREATOR' &&
-        role !== 'ADMIN' &&
-        role !== 'FOUNDER'
-      ) {
-        return NextResponse.redirect(
-          new URL('/', req.url)
-        )
+      if (!['CREATOR', 'ADMIN', 'FOUNDER'].includes(role)) {
+        return NextResponse.redirect(new URL('/', req.url))
       }
     }
 
     if (
-      path.startsWith('/translator') ||
-      path.startsWith('/api/translator')
+      pathname.startsWith('/translator') ||
+      pathname.startsWith('/api/translator')
     ) {
-      if (
-        role !== 'TRANSLATOR' &&
-        role !== 'ADMIN' &&
-        role !== 'FOUNDER'
-      ) {
-        return NextResponse.redirect(
-          new URL('/', req.url)
-        )
+      if (!['TRANSLATOR', 'ADMIN', 'FOUNDER'].includes(role)) {
+        return NextResponse.redirect(new URL('/', req.url))
       }
     }
 
@@ -75,13 +77,13 @@ export const config = {
     '/translator/:path*',
     '/api/translator/:path*',
 
-    '/bookmark',
+    '/bookmark/:path*',
     '/api/bookmarks/:path*',
 
-    '/history',
+    '/history/:path*',
     '/api/history/:path*',
 
-    '/notifications',
+    '/notifications/:path*',
     '/api/notifications/:path*',
 
     '/profile/:path*/edit',
