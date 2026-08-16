@@ -30,6 +30,7 @@
     "zod": "3.23.8"
   },
   "devDependencies": {
+    "autoprefixer": "^10.4.20"
     "prisma": "5.14.0",
     "typescript": "5.4.5",
     "@types/node": "20.14.10",
