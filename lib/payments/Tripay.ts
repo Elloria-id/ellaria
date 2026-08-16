@@ -1,7 +1,12 @@
 import crypto from 'crypto'
-import type { CreatePaymentParams, PaymentProvider, PaymentResult } from './PaymentProvider'
+import type {
+  CreatePaymentParams,
+  PaymentProvider,
+  PaymentResult,
+} from './PaymentProvider'
 
-const TRIPAY_BASE_URL = process.env.TRIPAY_BASE_URL || 'https://tripay.co.id/api-sandbox'
+const TRIPAY_BASE_URL =
+  process.env.TRIPAY_BASE_URL || 'https://tripay.co.id/api-sandbox'
 
 export class TripayProvider implements PaymentProvider {
   name = 'tripay'
@@ -14,16 +19,28 @@ export class TripayProvider implements PaymentProvider {
     this.apiKey = process.env.TRIPAY_API_KEY || ''
     this.privateKey = process.env.TRIPAY_PRIVATE_KEY || ''
     this.merchantCode = process.env.TRIPAY_MERCHANT_CODE || ''
+  }
 
+  private ensureConfigured() {
     if (!this.apiKey || !this.privateKey || !this.merchantCode) {
-      throw new Error('Konfigurasi TriPay belum lengkap')
+      throw new Error(
+        'Konfigurasi TriPay belum lengkap. Isi TRIPAY_API_KEY, TRIPAY_PRIVATE_KEY, dan TRIPAY_MERCHANT_CODE.'
+      )
     }
   }
 
-  async createPayment(params: CreatePaymentParams): Promise<PaymentResult> {
+  async createPayment(
+    params: CreatePaymentParams
+  ): Promise<PaymentResult> {
+    this.ensureConfigured()
+
     const signature = crypto
       .createHmac('sha256', this.privateKey)
-      .update(this.merchantCode + params.merchantRef + params.amount)
+      .update(
+        this.merchantCode +
+          params.merchantRef +
+          params.amount
+      )
       .digest('hex')
 
     const payload = {
@@ -41,25 +58,36 @@ export class TripayProvider implements PaymentProvider {
           quantity: 1,
         },
       ],
-      callback_url: params.callbackUrl || process.env.TRIPAY_CALLBACK_URL,
-      return_url: params.returnUrl || process.env.TRIPAY_RETURN_URL,
-      expired_time: Math.floor(Date.now() / 1000) + 60 * 60,
+      callback_url:
+        params.callbackUrl ||
+        process.env.TRIPAY_CALLBACK_URL,
+      return_url:
+        params.returnUrl ||
+        process.env.TRIPAY_RETURN_URL,
+      expired_time:
+        Math.floor(Date.now() / 1000) + 60 * 60,
       signature,
     }
 
-    const response = await fetch(`${TRIPAY_BASE_URL}/transaction/create`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${this.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    })
+    const response = await fetch(
+      `${TRIPAY_BASE_URL}/transaction/create`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      }
+    )
 
     const data = await response.json()
 
     if (!response.ok || !data.success) {
-      throw new Error(data?.message || 'Gagal membuat transaksi TriPay')
+      throw new Error(
+        data?.message ||
+          'Gagal membuat transaksi TriPay'
+      )
     }
 
     const result = data.data
@@ -71,25 +99,44 @@ export class TripayProvider implements PaymentProvider {
       amount: result.amount,
       status: result.status,
       paymentUrl: result.checkout_url,
-      qrImage: result.qr_url || result.qr_url_image,
+      qrImage:
+        result.qr_url ||
+        result.qr_url_image,
       metadata: result,
-      expiresAt: result.expired_time ? new Date(result.expired_time * 1000) : undefined,
+      expiresAt: result.expired_time
+        ? new Date(result.expired_time * 1000)
+        : undefined,
     }
   }
 
-  async getPaymentStatus(reference: string): Promise<{ status: string; metadata?: unknown }> {
-    const response = await fetch(`${TRIPAY_BASE_URL}/transaction/detail?reference=${encodeURIComponent(reference)}`, {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${this.apiKey}`,
-      },
-      cache: 'no-store',
-    })
+  async getPaymentStatus(
+    reference: string
+  ): Promise<{
+    status: string
+    metadata?: unknown
+  }> {
+    this.ensureConfigured()
+
+    const response = await fetch(
+      `${TRIPAY_BASE_URL}/transaction/detail?reference=${encodeURIComponent(
+        reference
+      )}`,
+      {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+        },
+        cache: 'no-store',
+      }
+    )
 
     const data = await response.json()
 
     if (!response.ok || !data.success) {
-      throw new Error(data?.message || 'Gagal mengambil status pembayaran')
+      throw new Error(
+        data?.message ||
+          'Gagal mengambil status pembayaran'
+      )
     }
 
     const result = data.data
@@ -100,16 +147,35 @@ export class TripayProvider implements PaymentProvider {
     }
   }
 
-  validateCallback(payload: unknown, signature: string): boolean {
-    if (!signature || !this.privateKey) return false
+  validateCallback(
+    payload: unknown,
+    signature: string
+  ): boolean {
+    if (!signature || !this.privateKey) {
+      return false
+    }
 
     const rawPayload = JSON.stringify(payload)
-    const expectedSignature = crypto.createHmac('sha256', this.privateKey).update(rawPayload).digest('hex')
 
-    if (expectedSignature.length !== signature.length) return false
+    const expectedSignature = crypto
+      .createHmac('sha256', this.privateKey)
+      .update(rawPayload)
+      .digest('hex')
 
-    return crypto.timingSafeEqual(Buffer.from(expectedSignature), Buffer.from(signature))
+    if (
+      expectedSignature.length !==
+      signature.length
+    ) {
+      return false
+    }
+
+    return crypto.timingSafeEqual(
+      Buffer.from(expectedSignature),
+      Buffer.from(signature)
+    )
   }
 }
 
+// Jangan instantiate TripayProvider saat build.
+// Instance hanya dibuat ketika memang dibutuhkan.
 export const tripayProvider = new TripayProvider()
