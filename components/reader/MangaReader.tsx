@@ -1,358 +1,215 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
-import { ChevronLeft, ChevronRight, Maximize, Minimize, Bookmark, Settings } from 'lucide-react'
+import { useEffect, useState } from 'react'
 
-interface MangaReaderProps {
+type MangaReaderProps = {
   chapterId: string
-  seriesId: string
-  images: Array<{
-    id: string
-    pageNumber: number
-    url: string
-    storageKey: string
-  }>
-  chapter: {
-    id: string
-    chapterNumber: number
-    title: string
-  }
-  series: {
-    id: string
-    title: string
-    slug: string
-  }
-  nextChapter?: {
-    id: string
-    chapterNumber: number
-  }
-  prevChapter?: {
-    id: string
-    chapterNumber: number
-  }
-  onProgressUpdate?: (page: number) => void
+  title?: string
+  images?: string[]
+  coinPrice?: number
 }
 
-export function MangaReader({
+export default function MangaReader({
   chapterId,
-  seriesId,
-  images,
-  chapter,
-  series,
-  nextChapter,
-  prevChapter,
-  onProgressUpdate,
+  title = 'Chapter',
+  images = [],
+  coinPrice = 0,
 }: MangaReaderProps) {
-  const router = useRouter()
+  const [brightness, setBrightness] = useState(100)
+  const [viewMode, setViewMode] = useState<'scroll' | 'paged'>(
+    'scroll'
+  )
   const [currentPage, setCurrentPage] = useState(0)
-  const [isFullscreen, setIsFullscreen] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
-  const [scrollMode, setScrollMode] = useState<'scroll' | 'single'>('scroll')
-  const [showControls, setShowControls] = useState(true)
-  const [isBookmarked, setIsBookmarked] = useState(false)
-  const containerRef = useRef<HTMLDivElement>(null)
-  const controlsTimeout = useRef<NodeJS.Timeout>()
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Load saved progress
-    const savedProgress = localStorage.getItem(
-      `progress-${seriesId}-${chapterId}`
+    setLoading(false)
+  }, [chapterId])
+
+  function nextPage() {
+    setCurrentPage(current =>
+      Math.min(current + 1, images.length - 1)
     )
-    if (savedProgress) {
-      const page = parseInt(savedProgress, 10)
-      if (page < images.length) {
-        setCurrentPage(page)
-      }
-    }
-    setIsLoading(false)
+  }
 
-    // Check bookmark status
-    checkBookmark()
-  }, [seriesId, chapterId, images.length])
-
-  useEffect(() => {
-    // Save progress
-    localStorage.setItem(
-      `progress-${seriesId}-${chapterId}`,
-      String(currentPage)
+  function previousPage() {
+    setCurrentPage(current =>
+      Math.max(current - 1, 0)
     )
-    onProgressUpdate?.(currentPage)
-
-    // Scroll to current page in scroll mode
-    if (scrollMode === 'scroll' && containerRef.current) {
-      const pageElements = containerRef.current.querySelectorAll('[data-page]')
-      if (pageElements[currentPage]) {
-        pageElements[currentPage].scrollIntoView({
-          behavior: 'smooth',
-          block: 'center',
-        })
-      }
-    }
-  }, [currentPage, seriesId, chapterId, onProgressUpdate, scrollMode])
-
-  const checkBookmark = async () => {
-    try {
-      const res = await fetch(`/api/bookmarks?seriesId=${seriesId}`)
-      const data = await res.json()
-      if (data.success && data.data) {
-        setIsBookmarked(data.data.some((b: any) => b.seriesId === seriesId))
-      }
-    } catch {
-      // Silently fail
-    }
   }
 
-  const toggleBookmark = async () => {
-    try {
-      if (isBookmarked) {
-        await fetch(`/api/bookmarks?seriesId=${seriesId}`, {
-          method: 'DELETE',
-        })
-        setIsBookmarked(false)
-      } else {
-        await fetch('/api/bookmarks', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ seriesId }),
-        })
-        setIsBookmarked(true)
-      }
-    } catch {
-      // Silently fail
-    }
-  }
-
-  const handleNextPage = () => {
-    if (currentPage < images.length - 1) {
-      setCurrentPage(currentPage + 1)
-    } else if (nextChapter) {
-      router.push(`/reader/${series.slug}/${nextChapter.id}`)
-    }
-  }
-
-  const handlePrevPage = () => {
-    if (currentPage > 0) {
-      setCurrentPage(currentPage - 1)
-    } else if (prevChapter) {
-      router.push(`/reader/${series.slug}/${prevChapter.id}`)
-    }
-  }
-
-  const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen()
-      setIsFullscreen(true)
-    } else {
-      document.exitFullscreen()
-      setIsFullscreen(false)
-    }
-  }
-
-  const handleKeyDown = (e: KeyboardEvent) => {
-    if (e.key === 'ArrowLeft') handlePrevPage()
-    if (e.key === 'ArrowRight') handleNextPage()
-    if (e.key === 'f') toggleFullscreen()
-    if (e.key === ' ') {
-      e.preventDefault()
-      setShowControls(!showControls)
-    }
-  }
-
-  useEffect(() => {
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [currentPage, images.length, nextChapter, prevChapter, showControls])
-
-  // Auto-hide controls
-  useEffect(() => {
-    if (controlsTimeout.current) {
-      clearTimeout(controlsTimeout.current)
-    }
-    controlsTimeout.current = setTimeout(() => {
-      setShowControls(false)
-    }, 3000)
-    return () => {
-      if (controlsTimeout.current) {
-        clearTimeout(controlsTimeout.current)
-      }
-    }
-  }, [showControls])
-
-  if (isLoading) {
+  if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-dark-500">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent" />
-      </div>
-    )
-  }
-
-  if (images.length === 0) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-dark-500">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-400">Tidak ada gambar</h2>
-          <p className="text-gray-500 mt-2">Chapter ini belum memiliki konten</p>
-        </div>
+      <div className="flex min-h-screen items-center justify-center bg-black text-gray-400">
+        Memuat chapter...
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-dark-500 pt-16 pb-8">
-      {/* Reader Header */}
-      <div
-        className={`sticky top-16 z-30 glass border-b border-glass-border p-4 transition-all duration-300 ${
-          showControls ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-full pointer-events-none'
-        }`}
-        onMouseEnter={() => setShowControls(true)}
-      >
-        <div className="container mx-auto flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-medium">{series.title}</h1>
-            <p className="text-sm text-gray-400">
-              Chapter {chapter.chapterNumber}: {chapter.title || 'Untitled'}
+    <main className="min-h-screen bg-black text-white">
+
+      {/* READER HEADER */}
+
+      <header className="sticky top-0 z-50 border-b border-white/10 bg-black/90 px-4 py-3 backdrop-blur">
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
+
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold">
+              {title}
+            </p>
+
+            <p className="text-[10px] text-gray-500">
+              {viewMode === 'scroll'
+                ? 'Continuous Scroll'
+                : `Page ${currentPage + 1} / ${images.length}`}
             </p>
           </div>
-          <div className="flex items-center space-x-2">
+
+          <div className="flex items-center gap-2">
+
             <button
-              onClick={toggleBookmark}
-              className="p-2 rounded-lg hover:bg-white/10 transition-colors"
-              title="Bookmark"
+              onClick={() =>
+                setViewMode('scroll')
+              }
+              className={`rounded-lg px-3 py-2 text-xs ${
+                viewMode === 'scroll'
+                  ? 'bg-[#42A5F5] text-black'
+                  : 'bg-white/10'
+              }`}
             >
-              <Bookmark
-                className={`w-5 h-5 ${isBookmarked ? 'fill-primary text-primary' : 'text-gray-400'}`}
-              />
+              Scroll
             </button>
+
             <button
-              onClick={() => setScrollMode(scrollMode === 'scroll' ? 'single' : 'scroll')}
-              className="p-2 rounded-lg hover:bg-white/10 transition-colors"
-              title="Toggle scroll mode"
+              onClick={() =>
+                setViewMode('paged')
+              }
+              className={`rounded-lg px-3 py-2 text-xs ${
+                viewMode === 'paged'
+                  ? 'bg-[#42A5F5] text-black'
+                  : 'bg-white/10'
+              }`}
             >
-              {scrollMode === 'scroll' ? 'Scroll' : 'Single'}
+              Page
             </button>
-            <button
-              onClick={toggleFullscreen}
-              className="p-2 rounded-lg hover:bg-white/10 transition-colors"
-              title="Fullscreen"
-            >
-              {isFullscreen ? (
-                <Minimize className="w-5 h-5" />
-              ) : (
-                <Maximize className="w-5 h-5" />
-              )}
-            </button>
+
           </div>
+
+        </div>
+      </header>
+
+      {/* CONTROLS */}
+
+      <div className="sticky top-[53px] z-40 border-b border-white/5 bg-black/80 px-4 py-2 backdrop-blur">
+        <div className="mx-auto flex max-w-5xl items-center gap-3">
+
+          <span className="text-xs text-gray-500">
+            Brightness
+          </span>
+
+          <input
+            type="range"
+            min="50"
+            max="100"
+            value={brightness}
+            onChange={event =>
+              setBrightness(Number(event.target.value))
+            }
+            className="w-32 accent-[#42A5F5]"
+          />
+
+          <span className="text-xs text-gray-500">
+            {brightness}%
+          </span>
+
         </div>
       </div>
 
-      {/* Progress Bar */}
-      <div
-        className={`sticky top-20 z-30 h-1 bg-dark-300 transition-all duration-300 ${
-          showControls ? 'opacity-100' : 'opacity-0'
-        }`}
-      >
-        <div
-          className="h-full bg-primary transition-all duration-300"
-          style={{
-            width: `${((currentPage + 1) / images.length) * 100}%`,
-          }}
-        />
-      </div>
+      {/* READER */}
 
-      {/* Reader Content */}
       <div
-        className="container mx-auto px-4 py-8"
-        onClick={() => setShowControls(true)}
-        ref={containerRef}
+        style={{
+          filter: `brightness(${brightness}%)`,
+        }}
       >
-        {scrollMode === 'scroll' ? (
-          <div className="flex flex-col items-center space-y-4">
+
+        {images.length === 0 ? (
+          <div className="mx-auto flex min-h-[70vh] max-w-3xl items-center justify-center px-5 text-center text-sm text-gray-500">
+            Belum ada halaman chapter.
+          </div>
+        ) : viewMode === 'scroll' ? (
+
+          <div className="mx-auto max-w-4xl">
+
             {images.map((image, index) => (
-              <div
-                key={image.id}
-                data-page={index}
-                className="relative max-w-3xl w-full"
-              >
-                <img
-                  src={image.url}
-                  alt={`Page ${image.pageNumber}`}
-                  className="w-full h-auto rounded-lg shadow-xl"
-                  loading={index === 0 ? 'eager' : 'lazy'}
-                  onClick={() => setShowControls(true)}
-                />
-                <div className="absolute bottom-4 right-4 glass px-3 py-1 rounded-lg text-sm text-gray-300">
-                  {image.pageNumber} / {images.length}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="flex items-center justify-center min-h-[80vh]">
-            <button
-              onClick={handlePrevPage}
-              className={`fixed left-4 z-20 p-4 rounded-full glass hover:bg-white/10 transition-colors ${
-                !showControls ? 'opacity-0 pointer-events-none' : ''
-              }`}
-              disabled={currentPage === 0 && !prevChapter}
-            >
-              <ChevronLeft className="w-6 h-6" />
-            </button>
-
-            <div className="relative max-w-3xl w-full">
               <img
-                src={images[currentPage]?.url}
-                alt={`Page ${images[currentPage]?.pageNumber}`}
-                className="w-full h-auto rounded-lg shadow-xl"
-                onClick={() => setShowControls(true)}
+                key={`${chapterId}-${index}`}
+                src={image}
+                alt={`${title} page ${index + 1}`}
+                loading={index < 2 ? 'eager' : 'lazy'}
+                className="block h-auto w-full"
               />
-              <div className="absolute bottom-4 right-4 glass px-3 py-1 rounded-lg text-sm text-gray-300">
-                {images[currentPage]?.pageNumber} / {images.length}
-              </div>
-            </div>
+            ))}
 
-            <button
-              onClick={handleNextPage}
-              className={`fixed right-4 z-20 p-4 rounded-full glass hover:bg-white/10 transition-colors ${
-                !showControls ? 'opacity-0 pointer-events-none' : ''
-              }`}
-              disabled={currentPage === images.length - 1 && !nextChapter}
-            >
-              <ChevronRight className="w-6 h-6" />
-            </button>
           </div>
+
+        ) : (
+
+          <div className="flex min-h-[80vh] items-center justify-center px-3">
+
+            <img
+              src={images[currentPage]}
+              alt={`${title} page ${currentPage + 1}`}
+              className="max-h-[80vh] max-w-full object-contain"
+            />
+
+          </div>
+
         )}
+
       </div>
 
-      {/* Chapter Navigation */}
-      <div className="container mx-auto px-4 mt-8">
-        <div className="flex items-center justify-between glass rounded-lg p-4">
-          <button
-            onClick={() => router.push(`/series/${series.slug}`)}
-            className="btn-secondary"
-          >
-            Kembali ke Series
-          </button>
-          <div className="flex space-x-2">
-            {prevChapter && (
-              <button
-                onClick={() => router.push(`/reader/${series.slug}/${prevChapter.id}`)}
-                className="btn-secondary"
-              >
-                ← Chapter Sebelumnya
-              </button>
-            )}
-            {nextChapter && (
-              <button
-                onClick={() => router.push(`/reader/${series.slug}/${nextChapter.id}`)}
-                className="btn-primary"
-              >
-                Chapter Selanjutnya →
-              </button>
-            )}
+      {/* PAGE NAVIGATION */}
+
+      {viewMode === 'paged' && images.length > 0 && (
+        <div className="sticky bottom-0 border-t border-white/10 bg-black/90 p-4 backdrop-blur">
+          <div className="mx-auto flex max-w-4xl items-center justify-between">
+
+            <button
+              onClick={previousPage}
+              disabled={currentPage === 0}
+              className="rounded-xl bg-white/10 px-5 py-3 text-sm disabled:opacity-30"
+            >
+              Sebelumnya
+            </button>
+
+            <span className="text-xs text-gray-400">
+              {currentPage + 1} / {images.length}
+            </span>
+
+            <button
+              onClick={nextPage}
+              disabled={
+                currentPage >= images.length - 1
+              }
+              className="rounded-xl bg-[#42A5F5] px-5 py-3 text-sm font-semibold text-black disabled:opacity-30"
+            >
+              Berikutnya
+            </button>
+
           </div>
         </div>
-      </div>
-    </div>
+      )}
+
+      {/* COIN INFO */}
+
+      {coinPrice > 0 && (
+        <div className="border-t border-white/10 bg-[#05070a] px-4 py-5 text-center text-xs text-gray-500">
+          Chapter premium · {coinPrice} Coin
+        </div>
+      )}
+
+    </main>
   )
 }
