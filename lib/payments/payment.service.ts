@@ -398,11 +398,14 @@ export class PaymentService {
   throw new Error('Provider reference tidak ditemukan')
 }
 
+if (!payment.providerRef) {
+  throw new Error('Provider reference tidak ditemukan')
+}
+
 await this.processPaymentInternal(
   payment.providerRef,
   payment.provider
 )
-
           const updated = await prisma.payment.findUnique({
             where: { id: paymentId },
             include: {
