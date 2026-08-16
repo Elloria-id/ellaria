@@ -1,6 +1,4 @@
 import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth/auth'
 import { prisma } from '@/lib/db/prisma'
 
 type Params = {
@@ -14,35 +12,17 @@ export async function GET(
   { params }: Params
 ) {
   try {
-    const session = await getServerSession(authOptions)
-
-    const chapter = await prisma.chapter.findUnique({
-      where: {
-        id: params.chapterId,
-      },
-
-      include: {
-        series: {
-          select: {
-            id: true,
-            title: true,
-            slug: true,
-            cover: true,
-            type: true,
-            label: true,
-            is18Plus: true,
-          },
+    const chapter =
+      await prisma.chapter.findUnique({
+        where: {
+          id: params.chapterId,
         },
-
-        images: {
-          orderBy: {
-            pageNumber: 'asc',
-          },
+        include: {
+          series: true,
         },
-      },
-    })
+      })
 
-    if (!chapter || !chapter.isPublished) {
+    if (!chapter) {
       return NextResponse.json(
         {
           success: false,
@@ -52,55 +32,15 @@ export async function GET(
       )
     }
 
-    let unlocked = false
-
-    if (session?.user?.id) {
-      const entitlement =
-        await prisma.chapterEntitlement.findUnique({
-          where: {
-            userId_chapterId: {
-              userId: session.user.id,
-              chapterId: chapter.id,
-            },
-          },
-        })
-
-      unlocked = !!entitlement
-    }
-
-    const isFree =
-      !chapter.isPremium &&
-      !chapter.isLocked
-
-    const canRead = isFree || unlocked
-
     return NextResponse.json({
       success: true,
-
-      data: {
-        id: chapter.id,
-        chapterNumber: chapter.chapterNumber,
-        title: chapter.title,
-        contentType: chapter.contentType,
-        coinPrice: chapter.coinPrice,
-        isPremium: chapter.isPremium,
-        isLocked: chapter.isLocked,
-        waitEnabled: chapter.waitEnabled,
-        waitSeconds: chapter.waitSeconds,
-        views: chapter.views,
-
-        unlocked,
-        canRead,
-
-        series: chapter.series,
-
-        images: canRead
-          ? chapter.images
-          : [],
-      },
+      data: chapter,
     })
   } catch (error) {
-    console.error('CHAPTER_GET_ERROR:', error)
+    console.error(
+      'CHAPTER API ERROR:',
+      error
+    )
 
     return NextResponse.json(
       {
