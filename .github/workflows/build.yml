@@ -22,8 +22,13 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Prisma Generate
+            - name: Prisma Generate
         run: npx prisma generate
+
+      - name: Prisma DB Push
+        run: npx prisma db push
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
       - name: TypeScript Check
         run: npx tsc --noEmit
