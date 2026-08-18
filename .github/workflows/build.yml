@@ -25,15 +25,8 @@ jobs:
       - name: Prisma Generate
         run: npx prisma generate
 
-      - name: Prisma DB Push
-        run: npx prisma db push
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-
       - name: TypeScript Check
         run: npx tsc --noEmit
 
       - name: Next.js Build
         run: npm run build
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
