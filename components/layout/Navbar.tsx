@@ -24,7 +24,12 @@ import {
   Settings,
 } from 'lucide-react'
 
-export function Navbar() {
+interface NavbarProps {
+  homeMode?: boolean
+  hideOnHome?: boolean
+}
+
+export function Navbar({ homeMode = false, hideOnHome = false }: NavbarProps) {
   const { data: session } = useSession()
   const pathname = usePathname()
 
@@ -66,6 +71,10 @@ export function Navbar() {
       })
   }, [session])
 
+  if (hideOnHome && pathname === '/') {
+    return null
+  }
+
   const isActive = (href: string) => {
     if (href === '/') {
       return pathname === '/'
@@ -82,7 +91,9 @@ export function Navbar() {
 
   return (
     <nav
-      className={`fixed left-0 right-0 top-0 z-50 transition-all duration-300 ${
+      className={`${
+        homeMode ? 'relative' : 'fixed left-0 right-0 top-0'
+      } z-50 transition-all duration-300 ${
         scrolled || isOpen
           ? 'border-b border-white/10 bg-[#05070a]/95 shadow-[0_8px_30px_rgba(0,0,0,0.25)] backdrop-blur-xl'
           : 'bg-gradient-to-b from-[#05070a]/90 to-transparent'
