@@ -112,7 +112,7 @@ export function Navbar() {
                 </button>
                 <div className="absolute right-0 top-full mt-2 w-48 glass rounded-lg shadow-xl hidden group-hover:block">
                   <div className="p-2">
-                    <Link href={`/profile/${session.user?.username}`}>
+                    <Link href="/profile">
                       <button className="w-full text-left px-4 py-2 rounded-lg hover:bg-white/10 transition-colors">
                         Profile
                       </button>
@@ -179,7 +179,7 @@ export function Navbar() {
               </Link>
               {session ? (
                 <>
-                  <Link href={`/profile/${session.user?.username}`} onClick={() => setIsOpen(false)}>
+                  <Link href="/profile" onClick={() => setIsOpen(false)}>
                     <div className="px-4 py-2 rounded-lg hover:bg-white/10 transition-colors">
                       Profile
                     </div>
