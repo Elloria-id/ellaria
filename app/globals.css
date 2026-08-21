@@ -225,3 +225,23 @@ select:-webkit-autofill {
   margin-bottom: 1rem;
   font-weight: bold;
 }
+
+@keyframes ticker {
+  0% {
+    transform: translateX(0);
+  }
+
+  100% {
+    transform: translateX(-33.333%);
+  }
+}
+
+.animate-ticker {
+  display: flex;
+  white-space: nowrap;
+  animation: ticker 25s linear infinite;
+}
+
+.animate-ticker:hover {
+  animation-play-state: paused;
+}
