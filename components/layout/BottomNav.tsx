@@ -38,7 +38,7 @@ const navItems = [
   },
 ]
 
-export default function BottomNav() {
+export function BottomNav() {
   const pathname = usePathname()
 
   return (
