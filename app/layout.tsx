@@ -43,7 +43,7 @@ export default function RootLayout({
       <body className={`${inter.className} bg-dark-500 text-white min-h-screen`}>
         <Providers>
           <div className="flex flex-col min-h-screen">
-            <Navbar />
+            <Navbar hideOnHome />
             <main className="flex-1 pb-16 md:pb-0">
               {children}
             </main>
