@@ -78,6 +78,31 @@
       0 8px 10px -6px rgba(0, 0, 0, 0.1);
   }
 
+  /* Ellaria - Fix input visibility */
+input,
+textarea,
+select {
+  color: #ffffff;
+  color-scheme: dark;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #9ca3af;
+  opacity: 1;
+}
+
+/* Chrome / Android autofill */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  -webkit-text-fill-color: #ffffff !important;
+  -webkit-box-shadow: 0 0 0 1000px #121212 inset !important;
+  box-shadow: 0 0 0 1000px #121212 inset !important;
+  caret-color: #ffffff;
+}
   .btn-primary {
     background-color: var(--primary);
     color: #ffffff;
