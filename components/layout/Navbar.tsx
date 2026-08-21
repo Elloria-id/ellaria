@@ -24,7 +24,7 @@ import {
   Settings,
 } from 'lucide-react'
 
-interface NavbarProps {
+export interface NavbarProps {
   homeMode?: boolean
   hideOnHome?: boolean
 }
