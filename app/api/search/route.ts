@@ -195,232 +195,95 @@ export async function GET(req: Request) {
         where.type = contentType
       }
 
+      seriesTotal = await prisma.series.count({
+        where,
+      })
+
+      let orderBy: Prisma.SeriesFindManyArgs['orderBy']
+
       switch (sort) {
         case 'popular':
-          seriesTotal = await prisma.series.count({
-            where,
-          })
-
-          series = await prisma.series.findMany({
-            where,
-            select: {
-              id: true,
-              title: true,
-              slug: true,
-              cover: true,
-              type: true,
-              status: true,
-              label: true,
-              rating: true,
-              views: true,
-              readingCount: true,
-              is18Plus: true,
-              isPremium: true,
-              genres: {
-                select: {
-                  genre: {
-                    select: {
-                      id: true,
-                      name: true,
-                      slug: true,
-                    },
-                  },
-                },
-              },
+          orderBy = [
+            {
+              views: 'desc',
             },
-            orderBy: [
-              {
-                views: 'desc',
-              },
-              {
-                readingCount: 'desc',
-              },
-            ],
-            skip,
-            take: limit,
-          })
-
+            {
+              readingCount: 'desc',
+            },
+          ]
           break
 
         case 'rating':
-          seriesTotal = await prisma.series.count({
-            where,
-          })
-
-          series = await prisma.series.findMany({
-            where,
-            select: {
-              id: true,
-              title: true,
-              slug: true,
-              cover: true,
-              type: true,
-              status: true,
-              label: true,
-              rating: true,
-              views: true,
-              readingCount: true,
-              is18Plus: true,
-              isPremium: true,
-              genres: {
-                select: {
-                  genre: {
-                    select: {
-                      id: true,
-                      name: true,
-                      slug: true,
-                    },
-                  },
-                },
-              },
+          orderBy = [
+            {
+              rating: 'desc',
             },
-            orderBy: [
-              {
-                rating: 'desc',
-              },
-              {
-                views: 'desc',
-              },
-            ],
-            skip,
-            take: limit,
-          })
-
+            {
+              views: 'desc',
+            },
+          ]
           break
 
         case 'a-z':
-          seriesTotal = await prisma.series.count({
-            where,
-          })
-
-          series = await prisma.series.findMany({
-            where,
-            select: {
-              id: true,
-              title: true,
-              slug: true,
-              cover: true,
-              type: true,
-              status: true,
-              label: true,
-              rating: true,
-              views: true,
-              readingCount: true,
-              is18Plus: true,
-              isPremium: true,
-              genres: {
-                select: {
-                  genre: {
-                    select: {
-                      id: true,
-                      name: true,
-                      slug: true,
-                    },
-                  },
-                },
-              },
-            },
-            orderBy: {
-              title: 'asc',
-            },
-            skip,
-            take: limit,
-          })
-
+          orderBy = {
+            title: 'asc',
+          }
           break
 
         case 'z-a':
-          seriesTotal = await prisma.series.count({
-            where,
-          })
-
-          series = await prisma.series.findMany({
-            where,
-            select: {
-              id: true,
-              title: true,
-              slug: true,
-              cover: true,
-              type: true,
-              status: true,
-              label: true,
-              rating: true,
-              views: true,
-              readingCount: true,
-              is18Plus: true,
-              isPremium: true,
-              genres: {
-                select: {
-                  genre: {
-                    select: {
-                      id: true,
-                      name: true,
-                      slug: true,
-                    },
-                  },
-                },
-              },
-            },
-            orderBy: {
-              title: 'desc',
-            },
-            skip,
-            take: limit,
-          })
-
+          orderBy = {
+            title: 'desc',
+          }
           break
 
         case 'latest':
         default:
-          seriesTotal = await prisma.series.count({
-            where,
-          })
-
-          series = await prisma.series.findMany({
-            where,
-            select: {
-              id: true,
-              title: true,
-              slug: true,
-              cover: true,
-              type: true,
-              status: true,
-              label: true,
-              rating: true,
-              views: true,
-              readingCount: true,
-              is18Plus: true,
-              isPremium: true,
-              genres: {
-                select: {
-                  genre: {
-                    select: {
-                      id: true,
-                      name: true,
-                      slug: true,
-                    },
-                  },
-                },
-              },
+          orderBy = [
+            {
+              createdAt: 'desc',
             },
-            orderBy: [
-              {
-                createdAt: 'desc',
-              },
-              {
-                title: 'asc',
-              },
-            ],
-            skip,
-            take: limit,
-          })
-
+            {
+              title: 'asc',
+            },
+          ]
           break
       }
 
-      series = series.map((item) => ({
+      const rawSeries = await prisma.series.findMany({
+        where,
+        select: {
+          id: true,
+          title: true,
+          slug: true,
+          cover: true,
+          type: true,
+          status: true,
+          label: true,
+          rating: true,
+          views: true,
+          readingCount: true,
+          is18Plus: true,
+          isPremium: true,
+          genres: {
+            select: {
+              genre: {
+                select: {
+                  id: true,
+                  name: true,
+                  slug: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy,
+        skip,
+        take: limit,
+      })
+
+      series = rawSeries.map((item) => ({
         ...item,
-        genres: item.genres.map((g) => g.genre)
+        genres: item.genres.map((g) => g.genre),
       }))
     }
 
