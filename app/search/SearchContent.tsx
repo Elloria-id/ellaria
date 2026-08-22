@@ -17,8 +17,8 @@ import {
   Users,
   BookOpen,
   Languages,
-  UserRound,
-  UsersRound,
+  User,
+  Users,
 } from 'lucide-react'
 
 type SearchType =
@@ -149,7 +149,7 @@ const tabs: {
   {
     value: 'community',
     label: 'Community',
-    icon: UsersRound,
+    icon: Users,
   },
 ]
 
@@ -841,7 +841,7 @@ export default function SearchContent() {
                             className="h-full w-full object-cover"
                           />
                         ) : (
-                          <UsersRound className="h-5 w-5" />
+                          <Users className="h-5 w-5" />
                         )}
                       </div>
 
