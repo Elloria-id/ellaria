@@ -420,7 +420,7 @@ export async function GET(req: Request) {
 
       series = series.map((item) => ({
         ...item,
-        genres: item.genres.map((itemGenre) => itemGenre.genre),
+        genres: item.genres.map((g) => g.genre)
       }))
     }
 
