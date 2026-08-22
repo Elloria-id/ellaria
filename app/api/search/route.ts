@@ -2,51 +2,64 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
 import type { Prisma } from '@prisma/client'
 
-const DEFAULT_LIMIT = 20
-const MAX_LIMIT = 50
-
-const validTypes = [
+const VALID_TYPES = [
   'all',
   'series',
+  'user',
   'translator',
   'creator',
-  'user',
   'community',
+  'genre',
 ] as const
 
-const validSeriesTypes = [
-  'MANGA',
-  'MANHWA',
-  'MANHUA',
-  'NOVEL',
-  'ONE_SHOT',
-] as const
+type SearchType = (typeof VALID_TYPES)[number]
 
-const validStatuses = [
-  'ONGOING',
-  'COMPLETED',
-  'HIATUS',
-] as const
+function getType(value: string | null): SearchType {
+  if (value && VALID_TYPES.includes(value as SearchType)) {
+    return value as SearchType
+  }
 
-type SearchType = (typeof validTypes)[number]
-
-function isSearchType(value: string): value is SearchType {
-  return validTypes.includes(value as SearchType)
+  return 'series'
 }
 
-function isSeriesType(
-  value: string
-): value is (typeof validSeriesTypes)[number] {
-  return validSeriesTypes.includes(
-    value as (typeof validSeriesTypes)[number]
-  )
+function getPositiveInt(
+  value: string | null,
+  fallback: number,
+  max: number
+) {
+  const parsed = Number(value)
+
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    return fallback
+  }
+
+  return Math.min(Math.floor(parsed), max)
 }
 
 function isSeriesStatus(
   value: string
-): value is (typeof validStatuses)[number] {
-  return validStatuses.includes(
-    value as (typeof validStatuses)[number]
+): value is 'ONGOING' | 'COMPLETED' | 'HIATUS' {
+  return (
+    value === 'ONGOING' ||
+    value === 'COMPLETED' ||
+    value === 'HIATUS'
+  )
+}
+
+function isSeriesType(
+  value: string
+): value is
+  | 'MANGA'
+  | 'MANHWA'
+  | 'MANHUA'
+  | 'NOVEL'
+  | 'ONE_SHOT' {
+  return (
+    value === 'MANGA' ||
+    value === 'MANHWA' ||
+    value === 'MANHUA' ||
+    value === 'NOVEL' ||
+    value === 'ONE_SHOT'
   )
 }
 
@@ -55,42 +68,36 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url)
 
     const q = searchParams.get('q')?.trim() || ''
-    const typeParam = searchParams.get('type') || 'all'
+    const type = getType(searchParams.get('type'))
     const genre = searchParams.get('genre')?.trim() || ''
-    const status = searchParams.get('status')?.trim().toUpperCase() || ''
+    const status = searchParams.get('status')?.trim() || ''
     const contentType =
-      searchParams.get('contentType')?.trim().toUpperCase() || ''
+      searchParams.get('contentType')?.trim() || ''
     const sort = searchParams.get('sort') || 'latest'
 
-    const pageParam = Number(searchParams.get('page') || '1')
-    const limitParam = Number(
-      searchParams.get('limit') || DEFAULT_LIMIT
+    const page = getPositiveInt(
+      searchParams.get('page'),
+      1,
+      100000
     )
 
-    const page =
-      Number.isFinite(pageParam) && pageParam > 0
-        ? Math.floor(pageParam)
-        : 1
-
-    const limit =
-      Number.isFinite(limitParam) && limitParam > 0
-        ? Math.min(Math.floor(limitParam), MAX_LIMIT)
-        : DEFAULT_LIMIT
-
-    const type: SearchType = isSearchType(typeParam)
-      ? typeParam
-      : 'all'
+    const limit = getPositiveInt(
+      searchParams.get('limit'),
+      20,
+      100
+    )
 
     const skip = (page - 1) * limit
 
     /*
-     * GENRE LIST
+     * GENRES
      *
-     * Selalu dikembalikan supaya halaman Search bisa
-     * menampilkan seluruh genre aktif walaupun user
-     * belum memasukkan keyword.
+     * Selalu ambil semua genre aktif.
+     *
+     * Ini penting karena halaman Search membutuhkan daftar
+     * genre meskipun user belum mengetik keyword pencarian.
      */
-    const genres = await prisma.genre.findMany({
+    const allGenres = await prisma.genre.findMany({
       where: {
         isActive: true,
       },
@@ -106,34 +113,38 @@ export async function GET(req: Request) {
     })
 
     /*
-     * SERIES
+     * GENRE SEARCH
+     *
+     * Kalau user mengetik keyword, genres juga difilter.
+     * Kalau tidak mengetik keyword, semua genre tetap tersedia.
      */
-    const shouldSearchSeries =
-      type === 'all' || type === 'series'
+    const genres = q
+      ? allGenres.filter((item) => {
+          const name = item.name.toLowerCase()
+          const slug = item.slug.toLowerCase()
+          const keyword = q.toLowerCase()
 
-    let series: Array<{
-      id: string
-      title: string
-      slug: string
-      cover: string | null
-      type: string
-      status: string
-      label: string
-      rating: number
-      views: number
-      readingCount: number
-      is18Plus: boolean
-      isPremium: boolean
-      genres: Array<{
-        id: string
-        name: string
-        slug: string
-      }>
-    }> = []
+          return (
+            name.includes(keyword) ||
+            slug.includes(keyword)
+          )
+        })
+      : allGenres
 
-    let seriesTotal = 0
+    /*
+     * RESULT VARIABLES
+     */
 
-    if (shouldSearchSeries) {
+    let results: any[] = []
+    let total = 0
+
+    /*
+     * =========================================================
+     * SERIES
+     * =========================================================
+     */
+
+    if (type === 'series' || type === 'all') {
       const where: Prisma.SeriesWhereInput = {
         published: true,
       }
@@ -195,33 +206,23 @@ export async function GET(req: Request) {
         where.type = contentType
       }
 
-      seriesTotal = await prisma.series.count({
+      total = await prisma.series.count({
         where,
       })
 
-      let orderBy: Prisma.SeriesFindManyArgs['orderBy']
+      let orderBy: Prisma.SeriesOrderByWithRelationInput
 
       switch (sort) {
         case 'popular':
-          orderBy = [
-            {
-              views: 'desc',
-            },
-            {
-              readingCount: 'desc',
-            },
-          ]
+          orderBy = {
+            views: 'desc',
+          }
           break
 
         case 'rating':
-          orderBy = [
-            {
-              rating: 'desc',
-            },
-            {
-              views: 'desc',
-            },
-          ]
+          orderBy = {
+            rating: 'desc',
+          }
           break
 
         case 'a-z':
@@ -238,14 +239,9 @@ export async function GET(req: Request) {
 
         case 'latest':
         default:
-          orderBy = [
-            {
-              createdAt: 'desc',
-            },
-            {
-              title: 'asc',
-            },
-          ]
+          orderBy = {
+            createdAt: 'desc',
+          }
           break
       }
 
@@ -264,6 +260,7 @@ export async function GET(req: Request) {
           readingCount: true,
           is18Plus: true,
           isPremium: true,
+
           genres: {
             select: {
               genre: {
@@ -281,35 +278,264 @@ export async function GET(req: Request) {
         take: limit,
       })
 
-      series = rawSeries.map((item) => ({
+      results = rawSeries.map((item) => ({
         ...item,
-        genres: item.genres.map((g) => g.genre),
+
+        genres: item.genres.map((itemGenre) => ({
+          id: itemGenre.genre.id,
+          name: itemGenre.genre.name,
+          slug: itemGenre.genre.slug,
+        })),
       }))
     }
 
     /*
+     * =========================================================
      * USERS
+     * =========================================================
      */
-    const shouldSearchUsers =
-      type === 'all' || type === 'user'
 
-    let users: Array<{
-      id: string
-      username: string
-      avatar: string | null
-      role: string
-      level: number
-    }> = []
-
-    let usersTotal = 0
-
-    if (shouldSearchUsers && q) {
-      const userWhere: Prisma.UserWhereInput = {
+    if (type === 'user') {
+      const where: Prisma.UserWhereInput = {
         isBanned: false,
-        username: {
+      }
+
+      if (q) {
+        where.username = {
           contains: q,
           mode: 'insensitive',
+        }
+      }
+
+      total = await prisma.user.count({
+        where,
+      })
+
+      results = await prisma.user.findMany({
+        where,
+        select: {
+          id: true,
+          username: true,
+          avatar: true,
+          role: true,
+          level: true,
         },
+        orderBy: {
+          username: 'asc',
+        },
+        skip,
+        take: limit,
+      })
+    }
+
+    /*
+     * =========================================================
+     * TRANSLATORS
+     * =========================================================
+     */
+
+    if (type === 'translator') {
+      const where: Prisma.TranslatorProfileWhereInput = {
+        user: {
+          isBanned: false,
+        },
+      }
+
+      if (q) {
+        where.OR = [
+          {
+            displayName: {
+              contains: q,
+              mode: 'insensitive',
+            },
+          },
+          {
+            user: {
+              username: {
+                contains: q,
+                mode: 'insensitive',
+              },
+            },
+          },
+        ]
+      }
+
+      total = await prisma.translatorProfile.count({
+        where,
+      })
+
+      results =
+        await prisma.translatorProfile.findMany({
+          where,
+          select: {
+            id: true,
+            userId: true,
+            displayName: true,
+            bio: true,
+            languages: true,
+            user: {
+              select: {
+                username: true,
+                avatar: true,
+              },
+            },
+          },
+          orderBy: {
+            displayName: 'asc',
+          },
+          skip,
+          take: limit,
+        })
+    }
+
+    /*
+     * =========================================================
+     * CREATORS
+     * =========================================================
+     */
+
+    if (type === 'creator') {
+      const where: Prisma.CreatorProfileWhereInput = {
+        user: {
+          isBanned: false,
+        },
+      }
+
+      if (q) {
+        where.OR = [
+          {
+            displayName: {
+              contains: q,
+              mode: 'insensitive',
+            },
+          },
+          {
+            user: {
+              username: {
+                contains: q,
+                mode: 'insensitive',
+              },
+            },
+          },
+        ]
+      }
+
+      total = await prisma.creatorProfile.count({
+        where,
+      })
+
+      results =
+        await prisma.creatorProfile.findMany({
+          where,
+          select: {
+            id: true,
+            userId: true,
+            displayName: true,
+            bio: true,
+            user: {
+              select: {
+                username: true,
+                avatar: true,
+              },
+            },
+          },
+          orderBy: {
+            displayName: 'asc',
+          },
+          skip,
+          take: limit,
+        })
+    }
+
+    /*
+     * =========================================================
+     * COMMUNITIES
+     * =========================================================
+     */
+
+    if (type === 'community') {
+      const where: Prisma.CommunityWhereInput = {
+        isActive: true,
+      }
+
+      if (q) {
+        where.OR = [
+          {
+            name: {
+              contains: q,
+              mode: 'insensitive',
+            },
+          },
+          {
+            description: {
+              contains: q,
+              mode: 'insensitive',
+            },
+          },
+        ]
+      }
+
+      total = await prisma.community.count({
+        where,
+      })
+
+      results = await prisma.community.findMany({
+        where,
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          type: true,
+          avatar: true,
+        },
+        orderBy: {
+          name: 'asc',
+        },
+        skip,
+        take: limit,
+      })
+    }
+
+    /*
+     * =========================================================
+     * GENRE
+     * =========================================================
+     */
+
+    if (type === 'genre') {
+      results = genres.slice(skip, skip + limit)
+      total = genres.length
+    }
+
+    /*
+     * =========================================================
+     * ALL
+     *
+     * Untuk mode all, hasil utama tetap berupa series.
+     * Entity lain tetap dikirim sebagai data tambahan.
+     * =========================================================
+     */
+
+    let users: any[] = []
+    let translators: any[] = []
+    let creators: any[] = []
+    let communities: any[] = []
+
+    let usersTotal = 0
+    let translatorsTotal = 0
+    let creatorsTotal = 0
+    let communitiesTotal = 0
+
+    if (type === 'all') {
+      const userWhere: Prisma.UserWhereInput = {
+        isBanned: false,
+      }
+
+      if (q) {
+        userWhere.username = {
+          contains: q,
+          mode: 'insensitive',
+        }
       }
 
       usersTotal = await prisma.user.count({
@@ -328,37 +554,18 @@ export async function GET(req: Request) {
         orderBy: {
           username: 'asc',
         },
-        skip,
         take: limit,
       })
-    }
 
-    /*
-     * TRANSLATORS
-     */
-    const shouldSearchTranslators =
-      type === 'all' || type === 'translator'
+      const translatorWhere: Prisma.TranslatorProfileWhereInput =
+        {
+          user: {
+            isBanned: false,
+          },
+        }
 
-    let translators: Array<{
-      id: string
-      userId: string
-      displayName: string | null
-      bio: string | null
-      languages: string[]
-      user: {
-        username: string
-        avatar: string | null
-      }
-    }> = []
-
-    let translatorsTotal = 0
-
-    if (shouldSearchTranslators && q) {
-      const translatorWhere: Prisma.TranslatorProfileWhereInput = {
-        user: {
-          isBanned: false,
-        },
-        OR: [
+      if (q) {
+        translatorWhere.OR = [
           {
             displayName: {
               contains: q,
@@ -373,7 +580,7 @@ export async function GET(req: Request) {
               },
             },
           },
-        ],
+        ]
       }
 
       translatorsTotal =
@@ -400,36 +607,17 @@ export async function GET(req: Request) {
           orderBy: {
             displayName: 'asc',
           },
-          skip,
           take: limit,
         })
-    }
 
-    /*
-     * CREATORS
-     */
-    const shouldSearchCreators =
-      type === 'all' || type === 'creator'
-
-    let creators: Array<{
-      id: string
-      userId: string
-      displayName: string | null
-      bio: string | null
-      user: {
-        username: string
-        avatar: string | null
-      }
-    }> = []
-
-    let creatorsTotal = 0
-
-    if (shouldSearchCreators && q) {
       const creatorWhere: Prisma.CreatorProfileWhereInput = {
         user: {
           isBanned: false,
         },
-        OR: [
+      }
+
+      if (q) {
+        creatorWhere.OR = [
           {
             displayName: {
               contains: q,
@@ -444,7 +632,7 @@ export async function GET(req: Request) {
               },
             },
           },
-        ],
+        ]
       }
 
       creatorsTotal =
@@ -452,48 +640,33 @@ export async function GET(req: Request) {
           where: creatorWhere,
         })
 
-      creators = await prisma.creatorProfile.findMany({
-        where: creatorWhere,
-        select: {
-          id: true,
-          userId: true,
-          displayName: true,
-          bio: true,
-          user: {
-            select: {
-              username: true,
-              avatar: true,
+      creators =
+        await prisma.creatorProfile.findMany({
+          where: creatorWhere,
+          select: {
+            id: true,
+            userId: true,
+            displayName: true,
+            bio: true,
+            user: {
+              select: {
+                username: true,
+                avatar: true,
+              },
             },
           },
-        },
-        orderBy: {
-          displayName: 'asc',
-        },
-        skip,
-        take: limit,
-      })
-    }
+          orderBy: {
+            displayName: 'asc',
+          },
+          take: limit,
+        })
 
-    /*
-     * COMMUNITIES
-     */
-    const shouldSearchCommunities =
-      type === 'all' || type === 'community'
-
-    let communities: Array<{
-      id: string
-      name: string
-      description: string | null
-      type: string
-      avatar: string | null
-    }> = []
-
-    let communitiesTotal = 0
-
-    if (shouldSearchCommunities && q) {
       const communityWhere: Prisma.CommunityWhereInput = {
         isActive: true,
-        OR: [
+      }
+
+      if (q) {
+        communityWhere.OR = [
           {
             name: {
               contains: q,
@@ -506,7 +679,7 @@ export async function GET(req: Request) {
               mode: 'insensitive',
             },
           },
-        ],
+        ]
       }
 
       communitiesTotal =
@@ -514,118 +687,142 @@ export async function GET(req: Request) {
           where: communityWhere,
         })
 
-      communities = await prisma.community.findMany({
-        where: communityWhere,
-        select: {
-          id: true,
-          name: true,
-          description: true,
-          type: true,
-          avatar: true,
-        },
-        orderBy: {
-          name: 'asc',
-        },
-        skip,
-        take: limit,
-      })
+      communities =
+        await prisma.community.findMany({
+          where: communityWhere,
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            type: true,
+            avatar: true,
+          },
+          orderBy: {
+            name: 'asc',
+          },
+          take: limit,
+        })
     }
 
     /*
-     * GENRE SEARCH
-     *
-     * Jika keyword diisi, kembalikan genre yang cocok.
-     * Ini berbeda dengan daftar genres di atas yang
-     * selalu mengembalikan semua genre aktif.
+     * =========================================================
+     * RESPONSE
+     * =========================================================
      */
-    const matchedGenres = q
-      ? genres.filter((item) => {
-          const name = item.name.toLowerCase()
-          const slug = item.slug.toLowerCase()
-          const keyword = q.toLowerCase()
-
-          return (
-            name.includes(keyword) ||
-            slug.includes(keyword)
-          )
-        })
-      : []
-
-    let total = 0
-
-    switch (type) {
-      case 'series':
-        total = seriesTotal
-        break
-
-      case 'user':
-        total = usersTotal
-        break
-
-      case 'translator':
-        total = translatorsTotal
-        break
-
-      case 'creator':
-        total = creatorsTotal
-        break
-
-      case 'community':
-        total = communitiesTotal
-        break
-
-      case 'all':
-      default:
-        total =
-          seriesTotal +
-          usersTotal +
-          translatorsTotal +
-          creatorsTotal +
-          communitiesTotal
-        break
-    }
 
     const pages =
-      total > 0 ? Math.ceil(total / limit) : 0
+      total > 0
+        ? Math.ceil(total / limit)
+        : 0
 
     return NextResponse.json({
       success: true,
+
       query: q,
+
+      type,
+
       data: {
-        results:
-          type === 'series'
-            ? series
+        results,
+        series:
+          type === 'all'
+            ? results
+            : type === 'series'
+              ? results
+              : [],
+
+        users:
+          type === 'all'
+            ? users
             : type === 'user'
-              ? users
-              : type === 'translator'
-                ? translators
-                : type === 'creator'
-                  ? creators
-                  : type === 'community'
-                    ? communities
-                    : [],
-        series,
-        users,
-        translators,
-        creators,
-        communities,
+              ? results
+              : [],
+
+        translators:
+          type === 'all'
+            ? translators
+            : type === 'translator'
+              ? results
+              : [],
+
+        creators:
+          type === 'all'
+            ? creators
+            : type === 'creator'
+              ? results
+              : [],
+
+        communities:
+          type === 'all'
+            ? communities
+            : type === 'community'
+              ? results
+              : [],
+
         genres,
-        matchedGenres,
+
         pagination: {
           page,
           limit,
           total,
           pages,
         },
+
+        totals: {
+          series:
+            type === 'series' || type === 'all'
+              ? total
+              : 0,
+
+          users:
+            type === 'user'
+              ? total
+              : usersTotal,
+
+          translators:
+            type === 'translator'
+              ? total
+              : translatorsTotal,
+
+          creators:
+            type === 'creator'
+              ? total
+              : creatorsTotal,
+
+          communities:
+            type === 'community'
+              ? total
+              : communitiesTotal,
+
+          genres: genres.length,
+        },
       },
     })
   } catch (error) {
-    console.error('SEARCH_ERROR:', error)
+    console.error(
+      'SEARCH_ERROR:',
+      error
+    )
 
     return NextResponse.json(
       {
         success: false,
         message: 'Gagal melakukan pencarian',
+        data: {
+          results: [],
+          series: [],
+          users: [],
+          translators: [],
+          creators: [],
+          communities: [],
+          genres: [],
+          pagination: {
+            page: 1,
+            limit: 20,
+            total: 0,
+            pages: 0,
+          },
+        },
       },
       {
         status: 500,
