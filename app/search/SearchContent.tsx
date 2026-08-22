@@ -14,7 +14,6 @@ import {
   X,
   ChevronDown,
   Star,
-  Users,
   BookOpen,
   Languages,
   User,
@@ -139,7 +138,7 @@ const tabs: {
   {
     value: 'creator',
     label: 'Creator',
-    icon: UserRound,
+    icon: User,
   },
   {
     value: 'user',
