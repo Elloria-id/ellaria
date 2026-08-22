@@ -44,7 +44,7 @@ export default function RootLayout({
         <Providers>
           <div className="flex flex-col min-h-screen">
             <Navbar hideOnHome />
-               <main className="flex-1 pt-[68px] pb-16 md:pb-0">
+               <main className="flex-1 pb-16 md:pb-0">
               {children}
             </main>
             <Footer />
