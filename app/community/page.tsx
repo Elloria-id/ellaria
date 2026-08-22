@@ -4,7 +4,7 @@ export default function CommunityPage() {
       <div className="mx-auto max-w-6xl">
 
         <div className="mb-8">
-          <h1 className="text-3xl font-bold">
+          <h1 className="text-2xl font-bold">
             Community
           </h1>
 
