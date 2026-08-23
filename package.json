@@ -37,7 +37,7 @@
     "autoprefixer": "^10.4.20",
     "prisma": "5.14.0",
     "typescript": "5.4.5",
-    "tsx": "^4.20.3"
+    "tsx": "^4.20.3",
     "@types/node": "20.14.10",
     "@types/react": "18.3.3",
     "@types/react-dom": "18.3.0",
