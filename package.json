@@ -2,16 +2,20 @@
   "name": "ellaria",
   "version": "1.0.0",
   "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "prisma generate && next build",
-    "start": "next start",
-    "lint": "next lint",
-    "prisma:generate": "prisma generate",
-    "prisma:validate": "prisma validate",
-    "prisma:format": "prisma format",
-    "prisma:studio": "prisma studio"
-  },
+"scripts": {
+  "dev": "next dev",
+  "build": "prisma generate && next build",
+  "start": "next start",
+  "lint": "next lint",
+  "prisma:generate": "prisma generate",
+  "prisma:validate": "prisma validate",
+  "prisma:format": "prisma format",
+  "prisma:studio": "prisma studio"
+},
+
+"prisma": {
+  "seed": "tsx prisma/seed.ts"
+},
   "dependencies": {
     "@auth/prisma-adapter": "2.7.4",
     "@prisma/client": "5.14.0",
@@ -33,6 +37,7 @@
     "autoprefixer": "^10.4.20",
     "prisma": "5.14.0",
     "typescript": "5.4.5",
+    "tsx": "^4.20.3"
     "@types/node": "20.14.10",
     "@types/react": "18.3.3",
     "@types/react-dom": "18.3.0",
