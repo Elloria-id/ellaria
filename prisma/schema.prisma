@@ -78,6 +78,10 @@ model User {
   loginAttempts LoginAttempt[] @relation("LoginAttemptUser")
 }
 
+// Tambahkan 3 baris ini di dalam `model User`:
+  conversationsInitiated Conversation[] @relation("ConversationUserOne")
+  conversationsReceived  Conversation[] @relation("ConversationUserTwo")
+  sentPrivateMessages    Message[]      @relation("SentPrivateMessages")
 model Account {
   id                String  @id @default(cuid())
   userId            String
@@ -956,3 +960,39 @@ model BackupRecord {
 
 // ============================================================
 // (rest of file remains unchanged)
+
+// ============================================================
+// PRIVATE CHAT 1-ON-1
+// ============================================================
+
+model Conversation {
+  id        String   @id @default(cuid())
+  userOneId String
+  userTwoId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userOne  User      @relation("ConversationUserOne", fields: [userOneId], references: [id], onDelete: Cascade)
+  userTwo  User      @relation("ConversationUserTwo", fields: [userTwoId], references: [id], onDelete: Cascade)
+  messages Message[]
+
+  @@unique([userOneId, userTwoId])
+  @@index([userOneId])
+  @@index([userTwoId])
+  @@index([updatedAt])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  senderId       String
+  content        String       @db.Text
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User         @relation("SentPrivateMessages", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@index([senderId])
+}
