@@ -266,6 +266,8 @@ const genres = [
 
   // Kategori Tambahan & Tema Unik
   'Philosophical',
+  'guide',
+  'esper',
   'Parody',
   'Satire',
   'Slapstick',
