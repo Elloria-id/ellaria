@@ -4,9 +4,12 @@ import {
   ArrowLeft,
   BookOpen,
   CalendarDays,
-  UserPlus,
-  Users,
+  Eye,
+  FileText,
   Star,
+  Users,
+  UserRound,
+  Languages,
 } from 'lucide-react'
 
 import { prisma } from '@/lib/db/prisma'
@@ -17,7 +20,9 @@ type Props = {
   }>
 }
 
-export default async function PublicProfilePage({ params }: Props) {
+export default async function PublicProfilePage({
+  params,
+}: Props) {
   const { username } = await params
 
   const decodedUsername = decodeURIComponent(username)
@@ -39,20 +44,20 @@ export default async function PublicProfilePage({ params }: Props) {
       createdAt: true,
 
       creatorProfile: {
-  select: {
-    id: true,
-    displayName: true,
-    bio: true,
-  },
-},
+        select: {
+          id: true,
+          displayName: true,
+          bio: true,
+        },
+      },
 
-translatorProfile: {
-  select: {
-    displayName: true,
-    bio: true,
-    languages: true,
-  },
-},
+      translatorProfile: {
+        select: {
+          displayName: true,
+          bio: true,
+          languages: true,
+        },
+      },
     },
   })
 
@@ -60,13 +65,6 @@ translatorProfile: {
     notFound()
   }
 
-  /*
-   * Ambil karya milik user.
-   *
-   * Bisa berasal dari:
-   * 1. ownerId
-   * 2. creatorId melalui CreatorProfile
-   */
   const series = await prisma.series.findMany({
     where: {
       published: true,
@@ -112,13 +110,17 @@ translatorProfile: {
     user.translatorProfile?.bio ||
     user.bio
 
-  const initial = user.username.charAt(0).toUpperCase()
+  const initial =
+    user.username.charAt(0).toUpperCase()
 
-  const joinedDate = new Intl.DateTimeFormat('id-ID', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  }).format(user.createdAt)
+  const joinedDate = new Intl.DateTimeFormat(
+    'id-ID',
+    {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    },
+  ).format(user.createdAt)
 
   const roleLabel =
     user.role === 'FOUNDER'
@@ -133,35 +135,35 @@ translatorProfile: {
               ? 'Translator'
               : 'Reader'
 
-  const expProgress = Math.min(user.exp % 1000 / 10, 100)
+  const expProgress = Math.min(
+    (user.exp % 1000) / 10,
+    100,
+  )
 
   return (
-    <main className="min-h-screen bg-[#05070a] px-4 pb-12 pt-6 text-white md:px-6">
+    <main className="min-h-screen bg-[#05070a] px-4 pb-12 pt-[88px] text-white md:px-6 md:pt-[96px]">
       <div className="mx-auto max-w-5xl">
-
         {/* BACK */}
         <Link
           href="/search"
-          className="mb-5 inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/70 transition hover:bg-white/10 hover:text-white"
+          className="mb-5 inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-white/65 transition hover:border-[#42A5F5]/30 hover:bg-[#42A5F5]/10 hover:text-[#42A5F5]"
         >
           <ArrowLeft className="h-4 w-4" />
-          Kembali
+          Kembali ke Pencarian
         </Link>
 
-        {/* PROFILE CARD */}
+        {/* PROFILE */}
         <section className="overflow-hidden rounded-3xl border border-white/10 bg-[#0b1016] shadow-2xl">
-
           {/* COVER */}
-          <div className="relative h-32 overflow-hidden bg-gradient-to-r from-[#42A5F5]/40 via-[#42A5F5]/10 to-[#0b1016] md:h-40">
+          <div className="relative h-28 overflow-hidden bg-gradient-to-r from-[#42A5F5]/35 via-[#42A5F5]/10 to-[#0b1016] md:h-36">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(66,165,245,0.28),transparent_35%)]" />
+
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_0%,rgba(66,165,245,0.15),transparent_30%)]" />
           </div>
 
           <div className="px-5 pb-7 md:px-8">
-
-            {/* AVATAR + ACTION */}
-            <div className="-mt-12 flex items-end justify-between md:-mt-14">
-
+            {/* AVATAR */}
+            <div className="-mt-11 md:-mt-14">
               {user.avatar ? (
                 <img
                   src={user.avatar}
@@ -173,23 +175,12 @@ translatorProfile: {
                   {initial}
                 </div>
               )}
-
-              <div className="mb-1 hidden md:block">
-                <Link
-                  href="/login"
-                  className="inline-flex items-center gap-2 rounded-xl border border-[#42A5F5]/30 bg-[#42A5F5]/10 px-4 py-2.5 text-sm font-semibold text-[#42A5F5] transition hover:bg-[#42A5F5]/20"
-                >
-                  <UserPlus className="h-4 w-4" />
-                  Follow
-                </Link>
-              </div>
             </div>
 
             {/* USER INFO */}
             <div className="mt-5">
-
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-2xl font-bold md:text-3xl">
+                <h1 className="text-xl font-bold md:text-2xl">
                   {displayName}
                 </h1>
 
@@ -209,24 +200,13 @@ translatorProfile: {
                   {profileBio}
                 </p>
               ) : (
-                <p className="mt-4 text-sm text-white/35">
+                <p className="mt-4 text-sm text-white/30">
                   Belum ada bio.
                 </p>
               )}
 
-              {/* MOBILE FOLLOW */}
-              <div className="mt-5 md:hidden">
-                <Link
-                  href="/login"
-                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#42A5F5]/30 bg-[#42A5F5]/10 px-4 py-3 text-sm font-semibold text-[#42A5F5] transition hover:bg-[#42A5F5]/20"
-                >
-                  <UserPlus className="h-4 w-4" />
-                  Follow
-                </Link>
-              </div>
-
               {/* META */}
-              <div className="mt-5 flex flex-wrap gap-4 text-xs text-white/40">
+              <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-xs text-white/40">
                 <span className="inline-flex items-center gap-1.5">
                   <CalendarDays className="h-3.5 w-3.5" />
                   Bergabung {joinedDate}
@@ -235,7 +215,7 @@ translatorProfile: {
                 {user.translatorProfile?.languages &&
                   user.translatorProfile.languages.length > 0 && (
                     <span className="inline-flex items-center gap-1.5">
-                      <BookOpen className="h-3.5 w-3.5" />
+                      <Languages className="h-3.5 w-3.5" />
                       {user.translatorProfile.languages.join(', ')}
                     </span>
                   )}
@@ -244,33 +224,38 @@ translatorProfile: {
 
             {/* STATS */}
             <div className="mt-7 grid grid-cols-2 gap-3 md:grid-cols-4">
-
               <StatCard
+                icon={<UserRound className="h-3.5 w-3.5" />}
                 label="Level"
-                value={user.level.toString()}
+                value={user.level.toLocaleString('id-ID')}
               />
 
               <StatCard
+                icon={<FileText className="h-3.5 w-3.5" />}
                 label="EXP"
                 value={user.exp.toLocaleString('id-ID')}
               />
 
               <StatCard
+                icon={<Users className="h-3.5 w-3.5" />}
                 label="Following"
-                value={user.followingCount.toLocaleString('id-ID')}
+                value={user.followingCount.toLocaleString(
+                  'id-ID',
+                )}
               />
 
               <StatCard
+                icon={<Users className="h-3.5 w-3.5" />}
                 label="Followers"
-                value={user.followersCount.toLocaleString('id-ID')}
+                value={user.followersCount.toLocaleString(
+                  'id-ID',
+                )}
               />
-
             </div>
 
-            {/* EXP BAR */}
+            {/* EXP */}
             <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
-
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-3">
                 <span className="text-xs font-medium text-white/40">
                   Level {user.level}
                 </span>
@@ -289,25 +274,23 @@ translatorProfile: {
                 />
               </div>
             </div>
-
           </div>
         </section>
 
         {/* WORKS */}
         <section className="mt-8">
-
-          <div className="mb-5 flex items-end justify-between">
+          <div className="mb-5 flex items-end justify-between gap-4">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#42A5F5]">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#42A5F5]">
                 Library
               </p>
 
-              <h2 className="mt-1 text-xl font-bold md:text-2xl">
+              <h2 className="mt-1 text-lg font-bold md:text-xl">
                 Karya {displayName}
               </h2>
             </div>
 
-            <span className="text-xs text-white/35">
+            <span className="shrink-0 text-xs text-white/35">
               {series.length} karya
             </span>
           </div>
@@ -322,13 +305,13 @@ translatorProfile: {
                 Belum ada karya
               </h3>
 
-              <p className="mt-1 text-sm text-white/35">
-                User ini belum memiliki karya yang dipublikasikan.
+              <p className="mx-auto mt-1 max-w-sm text-sm leading-6 text-white/35">
+                User ini belum memiliki karya yang
+                dipublikasikan.
               </p>
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-
               {series.map((item) => (
                 <Link
                   key={item.id}
@@ -337,7 +320,6 @@ translatorProfile: {
                 >
                   {/* COVER */}
                   <div className="relative aspect-[16/9] overflow-hidden bg-[#111820]">
-
                     {item.cover ? (
                       <img
                         src={item.cover}
@@ -350,7 +332,6 @@ translatorProfile: {
                       </div>
                     )}
 
-                    {/* TYPE */}
                     <span className="absolute left-2 top-2 rounded-md bg-black/70 px-2 py-1 text-[9px] font-semibold uppercase text-white/80 backdrop-blur-sm">
                       {item.type}
                     </span>
@@ -370,13 +351,11 @@ translatorProfile: {
 
                   {/* INFO */}
                   <div className="p-3">
-
                     <h3 className="line-clamp-2 text-sm font-semibold leading-5 text-white/90 group-hover:text-[#42A5F5]">
                       {item.title}
                     </h3>
 
                     <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-white/35">
-
                       <span>
                         {item.status}
                       </span>
@@ -385,47 +364,48 @@ translatorProfile: {
                         <Star className="h-3 w-3 fill-current text-yellow-400" />
                         {item.rating.toFixed(1)}
                       </span>
-
                     </div>
 
-                    <div className="mt-2 flex items-center gap-3 text-[10px] text-white/30">
-                      <span>
-                        {item.views.toLocaleString('id-ID')} views
+                    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-white/30">
+                      <span className="inline-flex items-center gap-1">
+                        <Eye className="h-3 w-3" />
+                        {item.views.toLocaleString('id-ID')}
                       </span>
 
-                      <span>
-                        {item.readingCount.toLocaleString('id-ID')} reads
+                      <span className="inline-flex items-center gap-1">
+                        <BookOpen className="h-3 w-3" />
+                        {item.readingCount.toLocaleString('id-ID')}
                       </span>
                     </div>
-
                   </div>
                 </Link>
               ))}
-
             </div>
           )}
-
         </section>
 
-        {/* FOOTER SPACE */}
         <div className="h-8" />
-
       </div>
     </main>
   )
 }
 
 function StatCard({
+  icon,
   label,
   value,
 }: {
+  icon: React.ReactNode
   label: string
   value: string
 }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-[#0b1016] p-4">
       <div className="flex items-center gap-2">
-        <Users className="h-3.5 w-3.5 text-white/25" />
+        <span className="text-[#42A5F5]/70">
+          {icon}
+        </span>
+
         <p className="text-xs text-white/40">
           {label}
         </p>
