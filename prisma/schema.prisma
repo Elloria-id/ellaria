@@ -76,12 +76,12 @@ model User {
   chapterWaits ChapterWait[]
   // Opposite relation for LoginAttempt
   loginAttempts LoginAttempt[] @relation("LoginAttemptUser")
-}
-
 // Tambahkan 3 baris ini di dalam `model User`:
   conversationsInitiated Conversation[] @relation("ConversationUserOne")
   conversationsReceived  Conversation[] @relation("ConversationUserTwo")
   sentPrivateMessages    Message[]      @relation("SentPrivateMessages")
+}
+
 model Account {
   id                String  @id @default(cuid())
   userId            String
