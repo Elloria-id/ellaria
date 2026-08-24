@@ -299,6 +299,9 @@ export default function SearchContent() {
   const [genre, setGenre] =
     useState(initialGenre)
 
+  const [genreSearch, setGenreSearch] =
+    useState('')
+
   const [status, setStatus] =
     useState(initialStatus)
 
@@ -736,7 +739,7 @@ export default function SearchContent() {
         </section>
 
         {/* FILTERS */}
-        <section className="mb-7 overflow-hidden rounded-2xl border border-white/[0.08] bg-[#090f18]/80">
+        <section className="mb-7 overflow-hidden rounded-2xl border border-white/[0.08] bg-[#090f18]/80 shadow-sm">
           <div className="p-3 sm:p-4">
             <div className="flex flex-wrap items-center gap-2">
 
@@ -768,56 +771,147 @@ export default function SearchContent() {
                   />
 
                   {/* GENRE */}
-                  <div className="relative max-w-full">
-                    <select
-                      value={
-                        genre
-                      }
-                      onChange={(
-                        event
-                      ) =>
-                        setGenre(
-                          event
-                            .target
-                            .value
-                        )
-                      }
-                      disabled={
-                        genresLoading
-                      }
-                      className="h-10 max-w-full appearance-none rounded-xl border border-white/10 bg-[#111820] px-3 pr-9 text-sm text-white outline-none transition focus:border-[#42A5F5]/50 disabled:cursor-wait disabled:opacity-60"
-                    >
-                      <option value="">
-                        {genresLoading
-                          ? 'Memuat genre...'
-                          : genres.length ===
-                              0
-                            ? 'Genre belum tersedia'
-                            : 'Semua Genre'}
-                      </option>
+<div className="w-full rounded-2xl border border-white/[0.08] bg-[#0c131d] p-3 sm:p-4">
+  <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+      <div className="flex items-center gap-2">
+        <BookOpen className="h-4 w-4 text-[#42A5F5]" />
+        <h3 className="text-sm font-semibold text-white">
+          Genre
+        </h3>
+      </div>
 
-                      {genres.map(
-                        (
-                          item
-                        ) => (
-                          <option
-                            key={
-                              item.id
-                            }
-                            value={
-                              item.slug
-                            }
-                          >
-                            {
-                              item.name
-                            }
-                          </option>
-                        )
-                      )}
-                    </select>
+      <p className="mt-1 text-xs text-white/35">
+        Pilih genre untuk mempersempit hasil series.
+      </p>
+    </div>
 
-                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-white/40" />
-                  </div>
+    <span className="text-xs text-white/30">
+      {genresLoading
+        ? 'Memuat...'
+        : `${genres.length} genre`}
+    </span>
+  </div>
+
+  {!genresLoading && genres.length > 0 && (
+    <>
+      {/* SEARCH GENRE */}
+      <div className="relative mb-3">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/25" />
+
+        <input
+          type="search"
+          value={genreSearch}
+          onChange={(event) =>
+            setGenreSearch(event.target.value)
+          }
+          placeholder="Cari genre..."
+          className="h-10 w-full rounded-xl border border-white/10 bg-[#080d14] pl-10 pr-3 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-[#42A5F5]/40"
+        />
+      </div>
+
+      {/* GENRE CHIPS */}
+      <div className="max-h-52 overflow-y-auto pr-1">
+        <div className="flex flex-wrap gap-2">
+          {/* ALL */}
+          <button
+            type="button"
+            onClick={() => setGenre('')}
+            className={[
+              'rounded-xl px-3 py-2 text-xs font-medium transition',
+              !genre
+                ? 'bg-[#42A5F5] text-black shadow-[0_0_18px_rgba(66,165,245,0.15)]'
+                : 'border border-white/10 bg-white/[0.04] text-white/50 hover:bg-white/[0.08] hover:text-white',
+            ].join(' ')}
+          >
+            Semua
+          </button>
+
+          {genres
+            .filter((item) =>
+              item.name
+                .toLowerCase()
+                .includes(
+                  genreSearch
+                    .trim()
+                    .toLowerCase()
+                )
+            )
+            .map((item) => {
+              const active =
+                genre === item.slug
+
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() =>
+                    setGenre(
+                      active
+                        ? ''
+                        : item.slug
+                    )
+                  }
+                  className={[
+                    'rounded-xl px-3 py-2 text-xs font-medium transition',
+                    active
+                      ? 'bg-[#42A5F5] text-black shadow-[0_0_18px_rgba(66,165,245,0.15)]'
+                      : 'border border-white/10 bg-white/[0.04] text-white/55 hover:border-[#42A5F5]/30 hover:bg-[#42A5F5]/10 hover:text-[#42A5F5]',
+                  ].join(' ')}
+                >
+                  {item.name}
+                </button>
+              )
+            })}
+        </div>
+      </div>
+
+      {/* SELECTED GENRE */}
+      {genre && (
+        <div className="mt-3 flex items-center gap-2 border-t border-white/[0.06] pt-3">
+          <span className="text-xs text-white/30">
+            Dipilih:
+          </span>
+
+          <button
+            type="button"
+            onClick={() => setGenre('')}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-[#42A5F5]/10 px-2.5 py-1.5 text-xs font-medium text-[#42A5F5]"
+          >
+            {genres.find(
+              (item) =>
+                item.slug === genre
+            )?.name || genre}
+
+            <X className="h-3 w-3" />
+          </button>
+        </div>
+      )}
+    </>
+  )}
+
+  {!genresLoading &&
+    genres.length === 0 && (
+      <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-6 text-center">
+        <p className="text-sm text-white/40">
+          Genre belum tersedia.
+        </p>
+      </div>
+    )}
+
+  {genresLoading && (
+    <div className="flex gap-2 overflow-hidden">
+      {Array.from({ length: 6 }).map(
+        (_, index) => (
+          <div
+            key={index}
+            className="h-9 w-20 animate-pulse rounded-xl bg-white/[0.06]"
+          />
+        )
+      )}
+    </div>
+  )}
+</div>
 
                   <FilterSelect
                     value={
