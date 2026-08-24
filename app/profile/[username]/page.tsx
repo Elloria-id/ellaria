@@ -225,7 +225,7 @@ export default async function PublicProfilePage({
             {/* STATS */}
             <div className="mt-7 grid grid-cols-2 gap-3 md:grid-cols-4">
               <StatCard
-                icon={<UserRound className="h-3.5 w-3.5" />}
+                icon={<User className="h-3.5 w-3.5" />}
                 label="Level"
                 value={user.level.toLocaleString('id-ID')}
               />
