@@ -39,19 +39,20 @@ export default async function PublicProfilePage({ params }: Props) {
       createdAt: true,
 
       creatorProfile: {
-        select: {
-          displayName: true,
-          bio: true,
-        },
-      },
+  select: {
+    id: true,
+    displayName: true,
+    bio: true,
+  },
+},
 
-      translatorProfile: {
-        select: {
-          displayName: true,
-          bio: true,
-          languages: true,
-        },
-      },
+translatorProfile: {
+  select: {
+    displayName: true,
+    bio: true,
+    languages: true,
+  },
+},
     },
   })
 
