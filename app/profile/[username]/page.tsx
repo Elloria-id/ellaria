@@ -8,7 +8,7 @@ import {
   FileText,
   Star,
   Users,
-  UserRound,
+  User,
   Languages,
 } from 'lucide-react'
 
