@@ -74,6 +74,8 @@ model User {
   leaderboardEntries LeaderboardEntry[]
   voucherRedemptions VoucherRedemption[]
   chapterWaits ChapterWait[]
+loginAttempts LoginAttempt[] 
+@relation("LoginAttemptUser")
 }
 model Account {
   id                String  @id @default(cuid())
