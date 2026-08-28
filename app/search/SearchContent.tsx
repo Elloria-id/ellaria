@@ -831,7 +831,7 @@ const toggleGenre = (slug: string) => {
             onClick={() => setGenre([])}
             className={[
               'rounded-xl px-3 py-2 text-xs font-medium transition',
-              !genre
+              genre.length === 0
                 ? 'bg-[#42A5F5] text-black shadow-[0_0_18px_rgba(66,165,245,0.15)]'
                 : 'border border-white/10 bg-white/[0.04] text-white/50 hover:bg-white/[0.08] hover:text-white',
             ].join(' ')}
