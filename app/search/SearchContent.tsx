@@ -296,8 +296,20 @@ export default function SearchContent() {
   const [type, setType] =
     useState<SearchType>(initialType)
 
-  const [genre, setGenre] =
-    useState(initialGenre)
+const [genre, setGenre] =
+  useState<string[]>(
+    initialGenre
+      ? initialGenre.split(',').filter(Boolean)
+      : []
+  )
+
+const toggleGenre = (slug: string) => {
+  setGenre((current) =>
+    current.includes(slug)
+      ? current.filter((item) => item !== slug)
+      : [...current, slug]
+  )
+}
 
   const [genreSearch, setGenreSearch] =
     useState('')
@@ -356,9 +368,9 @@ export default function SearchContent() {
         params.set('type', type)
       }
 
-      if (genre) {
-        params.set('genre', genre)
-      }
+      if (genre.length > 0) {
+  params.set('genre', genre.join(','))
+}
 
       if (status) {
         params.set('status', status)
@@ -462,9 +474,9 @@ export default function SearchContent() {
           )
         }
 
-        if (genre) {
-          params.set('genre', genre)
-        }
+        if (genre.length > 0) {
+  params.set('genre', genre.join(','))
+}
 
         if (status) {
           params.set(
@@ -611,7 +623,7 @@ export default function SearchContent() {
       nextType !== 'series' &&
       nextType !== 'all'
     ) {
-      setGenre('')
+      setGenre([])
       setStatus('')
       setContentType('')
       setSort('latest')
@@ -619,7 +631,7 @@ export default function SearchContent() {
   }
 
   const clearFilters = () => {
-    setGenre('')
+    setGenre([])
     setStatus('')
     setContentType('')
     setSort('latest')
@@ -627,7 +639,7 @@ export default function SearchContent() {
   }
 
   const hasFilters =
-    Boolean(genre) ||
+    genre.length > 0
     Boolean(status) ||
     Boolean(contentType) ||
     sort !== 'latest'
@@ -816,7 +828,7 @@ export default function SearchContent() {
           {/* ALL */}
           <button
             type="button"
-            onClick={() => setGenre('')}
+            onClick={() => setGenre([])}
             className={[
               'rounded-xl px-3 py-2 text-xs font-medium transition',
               !genre
@@ -839,17 +851,13 @@ export default function SearchContent() {
             )
             .map((item) => {
               const active =
-                genre === item.slug
+                genre.includes(item.slug)
 
               return (
                 <button
                   key={item.id}
                   type="button"
-                  onClick={() =>
-                    setGenre(
-                      active
-                        ? ''
-                        : item.slug
+                  onClick={() => toggleGenre(item.slug)}
                     )
                   }
                   className={[
@@ -867,28 +875,31 @@ export default function SearchContent() {
       </div>
 
       {/* SELECTED GENRE */}
-      {genre && (
-        <div className="mt-3 flex items-center gap-2 border-t border-white/[0.06] pt-3">
-          <span className="text-xs text-white/30">
-            Dipilih:
-          </span>
+{genre.length > 0 && (
+  <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-white/[0.06] pt-3">
+    <span className="text-xs text-white/30">
+      Dipilih:
+    </span>
 
-          <button
-            type="button"
-            onClick={() => setGenre('')}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-[#42A5F5]/10 px-2.5 py-1.5 text-xs font-medium text-[#42A5F5]"
-          >
-            {genres.find(
-              (item) =>
-                item.slug === genre
-            )?.name || genre}
+    {genre.map((slug) => {
+      const selectedGenre = genres.find(
+        (item) => item.slug === slug
+      )
 
-            <X className="h-3 w-3" />
-          </button>
-        </div>
-      )}
-    </>
-  )}
+      return (
+        <button
+          key={slug}
+          type="button"
+          onClick={() => toggleGenre(slug)}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-[#42A5F5]/10 px-2.5 py-1.5 text-xs font-medium text-[#42A5F5]"
+        >
+          {selectedGenre?.name || slug}
+          <X className="h-3 w-3" />
+        </button>
+      )
+    })}
+  </div>
+)}
 
   {!genresLoading &&
     genres.length === 0 && (
