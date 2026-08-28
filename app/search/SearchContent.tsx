@@ -858,8 +858,6 @@ const toggleGenre = (slug: string) => {
                   key={item.id}
                   type="button"
                   onClick={() => toggleGenre(item.slug)}
-                    )
-                  }
                   className={[
                     'rounded-xl px-3 py-2 text-xs font-medium transition',
                     active
