@@ -919,8 +919,9 @@ const toggleGenre = (slug: string) => {
         )
       )}
     </div>
-  )}
 </div>
+                </>
+              )}
 
                   <FilterSelect
                     value={
