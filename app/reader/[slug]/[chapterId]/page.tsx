@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation'
+
 import { prisma } from '@/lib/db/prisma'
 import MangaReader from '@/components/reader/MangaReader'
 import NovelReader from '@/components/reader/NovelReader'
@@ -32,17 +33,24 @@ export default async function ReaderPage({
   const type = String(chapter.series.type || '').toUpperCase()
 
   /*
-    images/content menyesuaikan field schema final.
-    Jika schema menyimpan halaman sebagai JSON,
-    API reader berikutnya akan menjadi sumber data
-    utamanya.
-  */
-
+   * Untuk manga/manhwa/manhua, sumber halaman gambar
+   * akan dihubungkan pada tahap berikutnya setelah struktur
+   * penyimpanan chapter/image di project sudah dipastikan.
+   *
+   * Jangan mengarang field Prisma yang belum ada.
+   */
   const images: string[] = []
 
-  const content = 'content' in chapter
-    ? String((chapter as { content?: string }).content || '')
-    : ''
+  /*
+   * Novel menggunakan content jika field tersebut tersedia
+   * pada model Chapter.
+   */
+  const content =
+    'content' in chapter
+      ? String(
+          (chapter as { content?: string | null }).content || ''
+        )
+      : ''
 
   if (type === 'NOVEL') {
     return (
@@ -58,7 +66,9 @@ export default async function ReaderPage({
       chapterId={chapter.id}
       title={`${chapter.series.title} — Chapter ${chapter.chapterNumber}`}
       images={images}
-      coinPrice={Number((chapter as { coinPrice?: number }).coinPrice || 0)}
+      coinPrice={Number(
+        (chapter as { coinPrice?: number | null }).coinPrice || 0
+      )}
     />
   )
 }
