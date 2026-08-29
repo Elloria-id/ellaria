@@ -69,7 +69,10 @@ export async function GET(req: Request) {
 
     const q = searchParams.get('q')?.trim() || ''
     const type = getType(searchParams.get('type'))
-    const genre = searchParams.get('genre')?.trim() || ''
+    const genreSlugs = (searchParams.get('genre') || '')
+      .split(',')
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0)
     const status = searchParams.get('status')?.trim() || ''
     const contentType =
       searchParams.get('contentType')?.trim() || ''
@@ -178,17 +181,19 @@ export async function GET(req: Request) {
         ]
       }
 
-      if (genre) {
+      if (genreSlugs.length > 0) {
         where.genres = {
           some: {
             genre: {
               OR: [
                 {
-                  slug: genre,
+                  slug: {
+                    in: genreSlugs,
+                  },
                 },
                 {
                   name: {
-                    equals: genre,
+                    in: genreSlugs,
                     mode: 'insensitive',
                   },
                 },
