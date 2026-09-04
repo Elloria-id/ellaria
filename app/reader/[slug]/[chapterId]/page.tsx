@@ -3,26 +3,35 @@ import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/db/prisma'
 import MangaReader from '@/components/reader/MangaReader'
 import NovelReader from '@/components/reader/NovelReader'
+import { getStorageProvider } from '@/lib/storage/provider'
+import type { Prisma } from '@prisma/client'
 
 type PageProps = {
-  params: {
+  params: Promise<{
     slug: string
     chapterId: string
-  }
+  }>
 }
 
 export default async function ReaderPage({
   params,
 }: PageProps) {
+  const { slug, chapterId } = await params
+
   const chapter = await prisma.chapter.findFirst({
     where: {
-      id: params.chapterId,
+      id: chapterId,
       series: {
-        slug: params.slug,
+        slug,
       },
     },
     include: {
       series: true,
+      images: {
+        orderBy: {
+          pageNumber: 'asc',
+        },
+      },
     },
   })
 
@@ -30,16 +39,28 @@ export default async function ReaderPage({
     notFound()
   }
 
-  const type = String(chapter.series.type || '').toUpperCase()
+  const type = String(
+    chapter.contentType || chapter.series.type || ''
+  ).toUpperCase()
 
-  /*
-   * Untuk manga/manhwa/manhua, sumber halaman gambar
-   * akan dihubungkan pada tahap berikutnya setelah struktur
-   * penyimpanan chapter/image di project sudah dipastikan.
-   *
-   * Jangan mengarang field Prisma yang belum ada.
-   */
-  const images: string[] = []
+  const images =
+    type === 'NOVEL'
+      ? []
+      : await Promise.all(
+          chapter.images.map(
+            async (image: Prisma.ChapterImageGetPayload<{}>) => ({
+            pageNumber: image.pageNumber,
+            url:
+              image.url ||
+              (await getStorageProvider().getUrl(
+                image.storageKey
+              )),
+            })
+          )
+        )
+  const orderedImages = images
+    .sort((a, b) => a.pageNumber - b.pageNumber)
+    .map(image => image.url)
 
   /*
    * Novel menggunakan content jika field tersebut tersedia
@@ -65,7 +86,7 @@ export default async function ReaderPage({
     <MangaReader
       chapterId={chapter.id}
       title={`${chapter.series.title} — Chapter ${chapter.chapterNumber}`}
-      images={images}
+      images={orderedImages}
       coinPrice={Number(
         (chapter as { coinPrice?: number | null }).coinPrice || 0
       )}

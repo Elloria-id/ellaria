@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth'
-import { StorageProvider } from '@/lib/storage/StorageProvider'
-import { LocalStorageProvider } from '@/lib/storage/LocalStorage'
-import { R2StorageProvider } from '@/lib/storage/R2Storage'
+import { getStorageProvider } from '@/lib/storage/provider'
+import { prisma } from '@/lib/db/prisma'
+import { Role } from '@prisma/client'
 import { z } from 'zod'
+import { randomUUID } from 'crypto'
 
 const uploadSchema = z.object({
   file: z.string(), // base64
@@ -12,20 +13,6 @@ const uploadSchema = z.object({
   mimeType: z.string(),
   folder: z.enum(['proofs', 'covers', 'chapters']).default('proofs'),
 })
-
-let storageProvider: StorageProvider
-const provider = process.env.STORAGE_PROVIDER || 'local'
-
-if (provider === 'r2') {
-  try {
-    storageProvider = new R2StorageProvider()
-  } catch {
-    // Fallback ke local jika R2 gagal
-    storageProvider = new LocalStorageProvider()
-  }
-} else {
-  storageProvider = new LocalStorageProvider()
-}
 
 export async function POST(req: Request) {
   try {
@@ -39,6 +26,26 @@ export async function POST(req: Request) {
 
     const body = await req.json()
     const validated = uploadSchema.parse(body)
+
+    if (
+      validated.folder === 'chapters'
+    ) {
+      const user = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { role: true, isBanned: true },
+      })
+
+      if (
+        !user ||
+        user.isBanned ||
+        (user.role !== Role.ADMIN && user.role !== Role.FOUNDER)
+      ) {
+      return NextResponse.json(
+        { success: false, message: 'Hanya admin atau founder yang dapat mengupload halaman chapter' },
+        { status: 403 }
+      )
+      }
+    }
 
     const allowedTypes = ['image/jpeg', 'image/png', 'image/webp']
     if (!allowedTypes.includes(validated.mimeType)) {
@@ -57,13 +64,21 @@ export async function POST(req: Request) {
       )
     }
 
-    const timestamp = Date.now()
-    const uniqueId = `${session.user.id}-${timestamp}`
-    const fileExt = validated.fileName.split('.').pop() || 'jpg'
+    const uniqueId = `${session.user.id}-${randomUUID()}`
+    const fileExt =
+      validated.mimeType === 'image/png'
+        ? 'png'
+        : validated.mimeType === 'image/webp'
+          ? 'webp'
+          : 'jpg'
     const storageKey = `${validated.folder}/${uniqueId}.${fileExt}`
 
     const buffer = Buffer.from(base64Data, 'base64')
-    const url = await storageProvider.upload(storageKey, buffer, validated.mimeType)
+    const url = await getStorageProvider().upload(
+      storageKey,
+      buffer,
+      validated.mimeType
+    )
 
     return NextResponse.json({
       success: true,
