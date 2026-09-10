@@ -1,1 +1,1 @@
-export { VIPService } from './vip/vip.service'
+export { VIPService } from './vip.service'
